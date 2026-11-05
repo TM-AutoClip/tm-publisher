@@ -1,0 +1,35 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+
+# Editors and IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.rsuser
+
+# Test output
+TestResults/
+*.trx
+coverage*/
+
+# Operating system files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Local secrets and data (never committed)
+secrets/
+*.pfx
+*.key
+*.pem
+*.tmpbak
+*.db
+*.db-wal
+*.db-shm
+.env
+.claude/

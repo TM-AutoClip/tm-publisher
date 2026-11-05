@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Avalonia desktop app: views, view models, tray, autostart, single instance, first-run wizard, composition root. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>TMPublisher</AssemblyName>
+    <RootNamespace>TMPublisher.Desktop</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TMPublisher.Core\TMPublisher.Core.csproj" />
+    <ProjectReference Include="..\TMPublisher.Platforms\TMPublisher.Platforms.csproj" />
+    <ProjectReference Include="..\TMPublisher.Storage\TMPublisher.Storage.csproj" />
+    <ProjectReference Include="..\TMPublisher.Scheduling\TMPublisher.Scheduling.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="TMPublisher.Tests" />
+  </ItemGroup>
+</Project>

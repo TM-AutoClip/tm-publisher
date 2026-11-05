@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unit, architecture and fake-HTTP platform tests. No test talks to a real platform, account or device. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Shouldly" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TMPublisher.Core\TMPublisher.Core.csproj" />
+    <ProjectReference Include="..\..\src\TMPublisher.Platforms\TMPublisher.Platforms.csproj" />
+    <ProjectReference Include="..\..\src\TMPublisher.Storage\TMPublisher.Storage.csproj" />
+    <ProjectReference Include="..\..\src\TMPublisher.Scheduling\TMPublisher.Scheduling.csproj" />
+    <ProjectReference Include="..\..\src\TMPublisher.Desktop\TMPublisher.Desktop.csproj" />
+  </ItemGroup>
+</Project>

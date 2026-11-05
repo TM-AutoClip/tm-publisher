@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/dev/">
+    <Project Path="dev/TMPublisher.Analyzers/TMPublisher.Analyzers.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/TMPublisher.Core/TMPublisher.Core.csproj" />
+    <Project Path="src/TMPublisher.Platforms/TMPublisher.Platforms.csproj" />
+    <Project Path="src/TMPublisher.Storage/TMPublisher.Storage.csproj" />
+    <Project Path="src/TMPublisher.Scheduling/TMPublisher.Scheduling.csproj" />
+    <Project Path="src/TMPublisher.Desktop/TMPublisher.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TMPublisher.Tests/TMPublisher.Tests.csproj" />
+  </Folder>
+</Solution>
