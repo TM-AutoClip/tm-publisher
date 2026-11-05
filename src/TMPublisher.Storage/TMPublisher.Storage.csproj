@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Encrypted SQLite (SQLite3 Multiple Ciphers) + EF Core, key protectors, backup format. Depends on Core only. -->
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" />
+    <PackageReference Include="SQLite3MC.PCLRaw.bundle" />
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\TMPublisher.Core\TMPublisher.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
