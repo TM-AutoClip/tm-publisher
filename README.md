@@ -157,6 +157,10 @@ Another folder can be used with `--data-dir <folder>` or the `TMPUBLISHER_DATA_D
 that folder. The program
 unpacks its native libraries to the system's temporary folder on first start (standard .NET single-file behavior).
 
+The program draws its windows with the processor, not the graphics card: it spends the day in the tray, and the graphics driver
+would stay loaded there the whole time. If drawing feels slow on a very large screen, start it with `--gpu` (or set the
+environment variable `TMPUBLISHER_GPU=1`, which also reaches the autostart entry) to draw with the graphics card.
+
 ## Known limits
 
 - **TikTok:** posts go to your TikTok inbox as drafts and you finish them in the app; the optional direct post is private.

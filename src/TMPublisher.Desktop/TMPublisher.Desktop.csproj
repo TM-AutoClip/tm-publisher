@@ -7,6 +7,14 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
+  <!--
+    Memory: the app runs in the tray all day. Workstation GC (one heap) without the background GC thread. Measured for 0.1.2 (managed heap
+    is only 4-7 MB): System.GC.ConserveMemory=5 and TieredPGO=false changed nothing measurable and are not set.
+  -->
+  <PropertyGroup>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />

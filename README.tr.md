@@ -161,6 +161,10 @@ Başka bir klasör `--data-dir <klasör>` ya da `TMPUBLISHER_DATA_DIR` ortam de�
 klasörü korur. Program ilk açılışta
 yerel kitaplıklarını sistemin geçici klasörüne açar (standart .NET tek dosya davranışı).
 
+Program pencerelerini ekran kartıyla değil işlemciyle çizer: günü tepside geçirir ve ekran kartı sürücüsü orada bütün gün yüklü
+kalırdı. Çok büyük bir ekranda çizim yavaş gelirse `--gpu` ile başlatın (ya da otomatik başlatmaya da ulaşan `TMPUBLISHER_GPU=1`
+ortam değişkenini tanımlayın); program ekran kartıyla çizer.
+
 ## Bilinen kısıtlar
 
 - **TikTok:** gönderiler TikTok gelen kutunuza taslak olarak gider ve uygulamada tamamlarsınız; isteğe bağlı doğrudan paylaşım

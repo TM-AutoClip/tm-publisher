@@ -12,8 +12,9 @@ namespace TMPublisher.Desktop;
 internal static class Program
 {
     /// <summary>
-    /// Arguments: <c>--tray</c> (start hidden in the tray; used by autostart) and <c>--data-dir &lt;folder&gt;</c> (or the environment variable
-    /// <c>TMPUBLISHER_DATA_DIR</c>). A second start with the same data folder asks the running one to show its window and exits.
+    /// Arguments: <c>--tray</c> (start hidden in the tray; used by autostart), <c>--data-dir &lt;folder&gt;</c> (or the environment variable
+    /// <c>TMPUBLISHER_DATA_DIR</c>) and <c>--gpu</c> (draw with the graphics card). A second start with the same data folder asks the running
+    /// one to show its window and exits.
     /// </summary>
     [STAThread]
     public static int Main(string[] args)
@@ -46,7 +47,8 @@ internal static class Program
         App.StartHidden = options.Tray;
         try
         {
-            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            logger.LogInformation("Drawing with the {Renderer}", options.Gpu ? "graphics card (--gpu)" : "processor");
+            return BuildAvaloniaApp(options.Gpu).StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
         {
@@ -56,5 +58,20 @@ internal static class Program
     }
 
     /// <summary>Avalonia app builder (also used by the designer).</summary>
-    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().UsePlatformDetect().LogToTrace();
+    public static AppBuilder BuildAvaloniaApp() => BuildAvaloniaApp(gpu: false);
+
+    /// <summary>
+    /// Avalonia app builder. The app draws with the processor (Skia software rendering) unless <paramref name="gpu"/>: the graphics card path
+    /// loads the graphics driver into the process at start-up, also in the tray where nothing is drawn, and keeps it (measured on Windows
+    /// with an NVIDIA card, tray idle: about 30 MB more working set and 50 MB more private memory all day). A few forms and lists draw
+    /// quickly enough without it.
+    /// </summary>
+    public static AppBuilder BuildAvaloniaApp(bool gpu)
+    {
+        var builder = AppBuilder.Configure<App>().UsePlatformDetect().LogToTrace();
+        return gpu
+            ? builder
+            : builder.With(new Win32PlatformOptions { RenderingMode = [Win32RenderingMode.Software] })
+                .With(new X11PlatformOptions { RenderingMode = [X11RenderingMode.Software] });
+    }
 }
