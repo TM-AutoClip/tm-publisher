@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+             xmlns:l="using:TMPublisher.Desktop.Localization"
+             x:Class="TMPublisher.Desktop.Views.TagSetsView"
+             x:DataType="vm:TagSetsViewModel">
+  <DockPanel Margin="28">
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,16">
+      <TextBlock Text="{l:Tr nav.tags}" Classes="h1" />
+      <TextBlock Text="{l:Tr tags.intro}" Classes="muted" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Status}" Classes="ok" />
+    </StackPanel>
+    <Button DockPanel.Dock="Bottom" Classes="accent" Content="{l:Tr common.save}" Command="{Binding SaveCommand}" Margin="0,12,0,0" HorizontalAlignment="Left" />
+    <ScrollViewer>
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:TagSetRowViewModel">
+            <Grid ColumnDefinitions="160,*" ColumnSpacing="12" Margin="0,3">
+              <TextBlock Text="{Binding Platform.DisplayName}" VerticalAlignment="Center" FontWeight="SemiBold" />
+              <TextBox Grid.Column="1" Text="{Binding Line}" PlaceholderText="{l:Tr tags.placeholder}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

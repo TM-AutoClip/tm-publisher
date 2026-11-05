@@ -21,6 +21,9 @@ public static class TargetOptionKeys
     /// <summary>YouTube "made for kids" (<c>true</c>/<c>false</c>).</summary>
     public const string MadeForKids = "youtube.madeForKids";
 
+    /// <summary>The platform tags typed for this target (kept so an edited post shows the same line).</summary>
+    public const string Tags = "tags";
+
     /// <summary>The media is AI-generated / synthetic (<c>true</c>/<c>false</c>); sent where the platform has a field for it.</summary>
     public const string Synthetic = "synthetic";
 }

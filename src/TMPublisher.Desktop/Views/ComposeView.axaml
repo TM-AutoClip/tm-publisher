@@ -1,0 +1,107 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+             xmlns:p="using:TMPublisher.Core.Posts"
+             xmlns:l="using:TMPublisher.Desktop.Localization"
+             x:Class="TMPublisher.Desktop.Views.ComposeView"
+             x:DataType="vm:ComposeViewModel">
+  <Grid Margin="28" ColumnDefinitions="*,*" ColumnSpacing="20" RowDefinitions="Auto,*,Auto">
+    <StackPanel Grid.ColumnSpan="2" Spacing="6" Margin="0,0,0,14">
+      <TextBlock Text="{l:Tr nav.compose}" Classes="h1" />
+      <TextBlock Text="{l:Tr compose.intro}" Classes="muted" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Status}" Classes="ok" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Spacing="10" Margin="0,0,8,0">
+        <TextBox Text="{Binding Title}" PlaceholderText="{l:Tr compose.title}" />
+        <TextBox Text="{Binding Body}" PlaceholderText="{l:Tr compose.body}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="140" />
+        <TextBox Text="{Binding Tags}" PlaceholderText="{l:Tr compose.tags}" />
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+          <Button Content="{l:Tr compose.add_media}" Command="{Binding AddMediaCommand}" />
+          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="small" Text="{Binding KindText}" />
+          <CheckBox Grid.Column="2" IsChecked="{Binding Synthetic}" Content="{l:Tr compose.synthetic}" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Media}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="p:MediaItem">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="✕" Command="{Binding $parent[UserControl].((vm:ComposeViewModel)DataContext).RemoveMediaCommand}" CommandParameter="{Binding}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Text="{l:Tr compose.targets}" Classes="h2" Margin="0,8,0,0" />
+        <ComboBox ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup}" HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:GroupChoice">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ItemsControl ItemsSource="{Binding Accounts}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AccountPickViewModel">
+              <StackPanel Margin="0,2" Opacity="{Binding IsSupported, Converter={x:Static vm:Converters.SupportedOpacity}}">
+                <CheckBox IsChecked="{Binding IsChecked}" IsEnabled="{Binding IsSupported}" Content="{Binding Title}" />
+                <TextBlock Text="{Binding Reason}" Classes="small" Margin="28,0,0,0" TextWrapping="Wrap" IsVisible="{Binding !IsSupported}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <ScrollViewer Grid.Row="1" Grid.Column="1">
+      <StackPanel Spacing="10">
+        <TextBlock Text="{l:Tr compose.preview}" Classes="h2" />
+        <TextBlock Text="{l:Tr compose.preview_hint}" Classes="small" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding Targets}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ComposeTargetViewModel">
+              <Border Classes="card" Margin="0,0,0,8">
+                <StackPanel Spacing="6">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Border Classes="badge" Background="{Binding Color}">
+                      <TextBlock Text="{Binding Platform.DisplayName}" Foreground="White" FontWeight="SemiBold" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{Binding Account.DisplayName}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding Counter}" Classes="small" VerticalAlignment="Center" />
+                  </Grid>
+                  <TextBlock Text="{Binding TitlePreview}" FontWeight="SemiBold" IsVisible="{Binding HasTitle}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding Preview}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding KeywordsText}" Classes="small" IsVisible="{Binding IsYouTube}" TextWrapping="Wrap" />
+                  <TextBox Text="{Binding TagLine}" PlaceholderText="{l:Tr compose.platform_tags}" />
+                  <ComboBox ItemsSource="{Binding PrivacyOptions}" SelectedItem="{Binding Privacy}" IsVisible="{Binding ShowPrivacy}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ChoiceOption">
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <CheckBox IsChecked="{Binding TikTokDirect}" Content="{l:Tr compose.tiktok_direct}" IsVisible="{Binding IsTikTok}" />
+                  <CheckBox IsChecked="{Binding MadeForKids}" Content="{l:Tr compose.made_for_kids}" IsVisible="{Binding IsYouTube}" />
+                  <TextBox Text="{Binding PinterestLink}" PlaceholderText="{l:Tr compose.pinterest_link}" IsVisible="{Binding IsPinterest}" />
+                  <TextBlock Text="{Binding Note}" Classes="warning" TextWrapping="Wrap" IsVisible="{Binding Note, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  <TextBlock Text="{Binding ProblemsText}" Classes="error" TextWrapping="Wrap" IsVisible="{Binding IsBlocked}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,14,0,0">
+      <DatePicker SelectedDate="{Binding Date}" />
+      <TimePicker Grid.Column="1" SelectedTime="{Binding Time}" ClockIdentifier="24HourClock" />
+      <TextBlock Grid.Column="2" Text="{Binding CostText}" Classes="warning" VerticalAlignment="Center" Margin="8,0" TextWrapping="Wrap" />
+      <Button Grid.Column="3" Content="{l:Tr compose.clear}" Command="{Binding ClearCommand}" />
+      <Button Grid.Column="4" Content="{l:Tr compose.save_draft}" Command="{Binding SaveDraftCommand}" />
+      <Button Grid.Column="5" Content="{l:Tr compose.schedule}" Command="{Binding ScheduleCommand}" IsEnabled="{Binding CanSend}" />
+      <Button Grid.Column="6" Classes="accent" Content="{l:Tr compose.send_now}" Command="{Binding SendNowCommand}" IsEnabled="{Binding CanSend}" />
+    </Grid>
+  </Grid>
+</UserControl>

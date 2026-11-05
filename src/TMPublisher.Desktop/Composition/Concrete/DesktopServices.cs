@@ -96,11 +96,15 @@ public static class DesktopServices
         services.AddSingleton<AccountService>();
         services.AddTransient<ConnectViewModel>();
         services.AddSingleton<Func<ConnectViewModel>>(s => s.GetRequiredService<ConnectViewModel>);
+        services.AddSingleton<PageViewModelBase, ComposeViewModel>();
         services.AddSingleton<PageViewModelBase, AccountsViewModel>();
         services.AddSingleton<PageViewModelBase, GroupsViewModel>();
+        services.AddSingleton<PageViewModelBase, TagSetsViewModel>();
         services.AddSingleton<PageViewModelBase, SettingsViewModel>();
         services.AddSingleton(new ViewLocator()
+            .Register<ComposeViewModel, ComposeView>()
             .Register<AccountsViewModel, AccountsView>()
+            .Register<TagSetsViewModel, TagSetsView>()
             .Register<GroupsViewModel, GroupsView>()
             .Register<SettingsViewModel, SettingsView>());
 
