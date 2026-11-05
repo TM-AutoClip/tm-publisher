@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+             xmlns:l="using:TMPublisher.Desktop.Localization"
+             xmlns:sys="using:System"
+             x:Class="TMPublisher.Desktop.Views.HistoryView"
+             x:DataType="vm:HistoryViewModel">
+  <Grid Margin="28" ColumnDefinitions="*,300" ColumnSpacing="20" RowDefinitions="Auto,*">
+    <StackPanel Grid.ColumnSpan="2" Spacing="8" Margin="0,0,0,14">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{l:Tr nav.history}" Classes="h1" />
+        <Button Grid.Column="1" Classes="accent" Content="{Binding FetchLabel}" Command="{Binding FetchCommand}" IsEnabled="{Binding CanFetch}" />
+      </Grid>
+      <TextBlock Text="{l:Tr history.intro}" Classes="muted" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Status}" Classes="muted" TextWrapping="Wrap" />
+    </StackPanel>
+    <ScrollViewer Grid.Row="1">
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:HistoryRowViewModel">
+            <Border Classes="card" Margin="0,0,0,8">
+              <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                  <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                  <TextBlock Grid.Column="1" Text="{Binding When}" Classes="small" />
+                </Grid>
+                <TextBlock Text="{Binding State}" Classes="small" />
+                <ItemsControl ItemsSource="{Binding Targets}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:HistoryTargetViewModel">
+                      <StackPanel Margin="0,4,0,0">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                          <Button Grid.Column="1" Content="{l:Tr history.open}" IsVisible="{Binding HasUrl}"
+                                  Command="{Binding $parent[UserControl].((vm:HistoryViewModel)DataContext).OpenLinkCommand}" CommandParameter="{Binding Url}" />
+                        </Grid>
+                        <TextBlock Text="{Binding State}" Classes="small" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Stats}" Classes="ok" IsVisible="{Binding Stats, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+    <ScrollViewer Grid.Row="1" Grid.Column="1">
+      <StackPanel Spacing="8">
+        <TextBlock Text="{l:Tr history.counts}" Classes="h2" />
+        <ItemsControl ItemsSource="{Binding Counts}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="sys:String">
+              <TextBlock Text="{Binding}" Classes="small" TextWrapping="Wrap" Margin="0,2" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="{l:Tr history.quotas}" Classes="h2" Margin="0,12,0,0" />
+        <ItemsControl ItemsSource="{Binding Quotas}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="sys:String">
+              <TextBlock Text="{Binding}" Classes="small" TextWrapping="Wrap" Margin="0,2" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="{l:Tr history.quota_note}" Classes="small" TextWrapping="Wrap" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

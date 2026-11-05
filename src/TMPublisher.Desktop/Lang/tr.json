@@ -332,5 +332,22 @@
   "post.done": "Gönderildi",
   "post.missed": "Kaçırıldı",
   "post.canceled": "İptal",
-  "post.blocked": "Engellendi"
+  "post.blocked": "Engellendi",
+  "nav.history": "Geçmiş",
+  "history.intro": "Son 30 günün gönderileri. Aşağıdaki sayılar yereldir; platformların sayıları (izlenme, beğeni) yalnız düğmeye tıklayınca okunur.",
+  "history.none": "Son 30 günde gönderi yok.",
+  "history.fetch": "Sayıları getir ({0} öğe)",
+  "history.fetch_cost": "Sayıları getir ({0} öğe, tahmini X ücreti ${1})",
+  "history.fetched": "{0} öğenin sayıları okundu.",
+  "history.fetch_errors": "Bazı sayılar okunamadı: {0}",
+  "history.open": "Aç",
+  "history.counts": "Son 30 gün",
+  "history.count": "{0}: {1} gönderildi, {2} hata",
+  "history.quotas": "Şu anki sınırlar",
+  "history.quota": "{0} · {1}: {4} başına {2} / {3}",
+  "history.quota_note": "Bu programın kendi kayıtlarından sayılır; başka yerden atılan gönderiler dahil değildir.",
+  "stats.views": "{0} izlenme",
+  "stats.likes": "{0} beğeni",
+  "stats.reposts": "{0} paylaşım",
+  "stats.replies": "{0} yanıt"
 }

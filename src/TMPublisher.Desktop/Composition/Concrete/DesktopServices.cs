@@ -25,6 +25,7 @@ using TMPublisher.Core.Paths;
 using TMPublisher.Core.Posts;
 using TMPublisher.Core.Quotas;
 using TMPublisher.Core.Settings;
+using TMPublisher.Core.Stats;
 using TMPublisher.Desktop.Logging;
 using TMPublisher.Desktop.Localization;
 using TMPublisher.Desktop.Notifications;
@@ -100,6 +101,7 @@ public static class DesktopServices
         services.AddSingleton<ComposeViewModel>();
         services.AddSingleton<PageViewModelBase>(s => s.GetRequiredService<ComposeViewModel>());
         services.AddSingleton<PageViewModelBase, CalendarViewModel>();
+        services.AddSingleton<PageViewModelBase, HistoryViewModel>();
         services.AddSingleton<PageViewModelBase, AttentionViewModel>();
         services.AddSingleton<PageViewModelBase, AccountsViewModel>();
         services.AddSingleton<PageViewModelBase, GroupsViewModel>();
@@ -108,6 +110,7 @@ public static class DesktopServices
         services.AddSingleton(new ViewLocator()
             .Register<ComposeViewModel, ComposeView>()
             .Register<CalendarViewModel, CalendarView>()
+            .Register<HistoryViewModel, HistoryView>()
             .Register<AttentionViewModel, AttentionView>()
             .Register<AccountsViewModel, AccountsView>()
             .Register<TagSetsViewModel, TagSetsView>()
@@ -120,6 +123,11 @@ public static class DesktopServices
         services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
         services.AddSingleton<CredentialRenewer>();
         services.AddSingleton<QuotaChecker>();
+        services.AddSingleton<StatsService>();
+        services.AddSingleton<IStatsReader, YouTubeStatsReader>();
+        services.AddSingleton<IStatsReader, XStatsReader>();
+        services.AddSingleton<IStatsReader, BlueskyStatsReader>();
+        services.AddSingleton<IStatsReader, MastodonStatsReader>();
         services.AddSingleton<PostSender>();
         services.AddSingleton<ProcessingWatcher>();
         services.AddSingleton<PostScheduler>();

@@ -332,5 +332,22 @@
   "post.done": "Sent",
   "post.missed": "Missed",
   "post.canceled": "Canceled",
-  "post.blocked": "Blocked"
+  "post.blocked": "Blocked",
+  "nav.history": "History",
+  "history.intro": "Posts of the last 30 days. The counters below are local; the platforms' numbers (views, likes) are read only when you click the button.",
+  "history.none": "No posts in the last 30 days.",
+  "history.fetch": "Fetch counters ({0} items)",
+  "history.fetch_cost": "Fetch counters ({0} items, estimated X cost ${1})",
+  "history.fetched": "Counters read for {0} items.",
+  "history.fetch_errors": "Some counters could not be read: {0}",
+  "history.open": "Open",
+  "history.counts": "Last 30 days",
+  "history.count": "{0}: {1} sent, {2} failed",
+  "history.quotas": "Limits now",
+  "history.quota": "{0} · {1}: {2} / {3} per {4}",
+  "history.quota_note": "Counted from this program's own records; posts made elsewhere are not included.",
+  "stats.views": "{0} views",
+  "stats.likes": "{0} likes",
+  "stats.reposts": "{0} reposts",
+  "stats.replies": "{0} replies"
 }
