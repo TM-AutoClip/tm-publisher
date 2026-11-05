@@ -7,6 +7,8 @@
     <Project Path="src/TMPublisher.Platforms/TMPublisher.Platforms.csproj" />
     <Project Path="src/TMPublisher.Storage/TMPublisher.Storage.csproj" />
     <Project Path="src/TMPublisher.Scheduling/TMPublisher.Scheduling.csproj" />
+    <Project Path="src/TMPublisher.Runtime/TMPublisher.Runtime.csproj" />
+    <Project Path="src/TMPublisher.Background/TMPublisher.Background.csproj" />
     <Project Path="src/TMPublisher.Desktop/TMPublisher.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -22,5 +22,7 @@
     <ProjectReference Include="..\..\src\TMPublisher.Storage\TMPublisher.Storage.csproj" />
     <ProjectReference Include="..\..\src\TMPublisher.Scheduling\TMPublisher.Scheduling.csproj" />
     <ProjectReference Include="..\..\src\TMPublisher.Desktop\TMPublisher.Desktop.csproj" />
+    <ProjectReference Include="..\..\src\TMPublisher.Runtime\TMPublisher.Runtime.csproj" />
+    <ProjectReference Include="..\..\src\TMPublisher.Background\TMPublisher.Background.csproj" />
   </ItemGroup>
 </Project>

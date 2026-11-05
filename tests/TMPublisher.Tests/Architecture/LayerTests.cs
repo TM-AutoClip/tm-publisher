@@ -4,8 +4,8 @@ using Shouldly;
 namespace TMPublisher.Tests.Architecture;
 
 /// <summary>
-/// Layer boundaries: Core references no project of ours; Platforms, Storage and Scheduling reference Core only; only the Desktop
-/// composition root references them all. A new reference across the boundary fails here.
+/// Layer boundaries: Core references no project of ours; Platforms, Storage, Scheduling and Runtime reference Core only; only the two
+/// composition roots (the window program and the background scheduler) reference them. A new reference across the boundary fails here.
 /// </summary>
 public sealed class LayerTests
 {
@@ -15,7 +15,9 @@ public sealed class LayerTests
         { "TMPublisher.Platforms", ["TMPublisher.Core"] },
         { "TMPublisher.Storage", ["TMPublisher.Core"] },
         { "TMPublisher.Scheduling", ["TMPublisher.Core"] },
-        { "TMPublisher.Desktop", ["TMPublisher.Core", "TMPublisher.Platforms", "TMPublisher.Storage", "TMPublisher.Scheduling"] },
+        { "TMPublisher.Runtime", ["TMPublisher.Core"] },
+        { "TMPublisher.Desktop", ["TMPublisher.Core", "TMPublisher.Platforms", "TMPublisher.Storage", "TMPublisher.Scheduling", "TMPublisher.Runtime"] },
+        { "TMPublisher.Background", ["TMPublisher.Core", "TMPublisher.Platforms", "TMPublisher.Storage", "TMPublisher.Scheduling", "TMPublisher.Runtime"] },
     };
 
     [Theory]

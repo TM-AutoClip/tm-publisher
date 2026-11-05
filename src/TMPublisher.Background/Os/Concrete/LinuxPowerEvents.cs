@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Tmds.DBus.Protocol;
 using TMPublisher.Scheduling;
 
-namespace TMPublisher.Desktop.Os;
+namespace TMPublisher.Background.Os;
 
 /// <summary>
 /// Linux: logind's <c>PrepareForSleep(false)</c> signal on the system bus (sent when the computer wakes up) and wall-clock jumps

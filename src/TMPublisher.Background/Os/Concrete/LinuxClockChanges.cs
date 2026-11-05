@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 
-namespace TMPublisher.Desktop.Os;
+namespace TMPublisher.Background.Os;
 
 /// <summary>
 /// Linux wall-clock jumps (NTP setting the time after boot on a computer without a clock battery, a manual change): a
