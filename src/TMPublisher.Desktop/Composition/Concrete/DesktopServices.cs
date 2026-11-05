@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Accounts;
@@ -27,11 +26,13 @@ using TMPublisher.Core.Posts;
 using TMPublisher.Core.Quotas;
 using TMPublisher.Core.Settings;
 using TMPublisher.Core.Stats;
-using TMPublisher.Desktop.Logging;
 using TMPublisher.Desktop.Localization;
 using TMPublisher.Desktop.Notifications;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
+using TMPublisher.Desktop.Scheduler;
+using TMPublisher.Runtime.Logging;
+using TMPublisher.Runtime.Paths;
 using TMPublisher.Desktop.Startup;
 using TMPublisher.Desktop.ViewModels;
 using TMPublisher.Desktop.Views;
@@ -75,7 +76,7 @@ public static class DesktopServices
         CurrentOs.Register(services);
         services.AddSingleton<Vault>();
         services.AddSingleton<BackupService>();
-        services.AddSingleton<IDbContextFactory<PublisherDbContext>, PublisherDbContextFactory>();
+        services.AddSingleton<IConnectionFactory, ConnectionFactory>();
         services.AddSingleton<IAccountStore, AccountStore>();
         services.AddSingleton<ICredentialStore, CredentialStore>();
         services.AddSingleton<IGroupStore, GroupStore>();
@@ -90,9 +91,9 @@ public static class DesktopServices
         services.AddSingleton<WindowHost>();
         services.AddSingleton<MainWindowHost>();
         services.AddSingleton<FileDialogs>();
+        services.AddSingleton<ToastStack>();
         services.AddSingleton<ToastNotifier>();
         services.AddSingleton<INotifier>(s => s.GetRequiredService<ToastNotifier>());
-        services.AddSingleton<TrayHost>();
         services.AddSingleton<AppStartup>();
         services.AddSingleton<ShellViewModel>();
         services.AddTransient<FirstRunViewModel>();
@@ -123,6 +124,7 @@ public static class DesktopServices
         services.AddSingleton(HttpTransport.Network);
         services.AddSingleton<ILoopbackListener, LoopbackListener>();
         services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
+        services.AddSingleton<IRefreshGate, FileRefreshGate>();
         services.AddSingleton<CredentialRenewer>();
         services.AddSingleton<QuotaChecker>();
         services.AddSingleton<StatsService>();
@@ -130,11 +132,13 @@ public static class DesktopServices
         services.AddSingleton<IStatsReader, XStatsReader>();
         services.AddSingleton<IStatsReader, BlueskyStatsReader>();
         services.AddSingleton<IStatsReader, MastodonStatsReader>();
-        services.AddSingleton<PostSender>();
-        services.AddSingleton<ProcessingWatcher>();
-        services.AddSingleton<PostScheduler>();
-        services.AddSingleton<IPostScheduler>(s => s.GetRequiredService<PostScheduler>());
-        services.AddSingleton<IStartupTask, SchedulerStartupTask>();
+
+        // The background scheduler (its own process) sends; the window stores decisions and talks to it.
+        services.AddSingleton<PostDecisions>();
+        services.AddSingleton<ISchedulerLauncher, ProcessSchedulerLauncher>();
+        services.AddSingleton<SchedulerSupervisor>();
+        services.AddSingleton<IStartupTask>(s => s.GetRequiredService<SchedulerSupervisor>());
+        services.AddSingleton<IPostScheduler, SchedulerBridge>();
         services.AddSingleton<IPlatform, YouTubePlatform>();
         services.AddSingleton<IPlatform, XPlatform>();
         services.AddSingleton<IPlatform, TikTokPlatform>();

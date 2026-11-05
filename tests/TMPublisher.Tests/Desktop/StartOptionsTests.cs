@@ -18,4 +18,11 @@ public sealed class StartOptionsTests
         StartOptions.Parse(["--gpu"]).Gpu.ShouldBeTrue();
         StartOptions.Parse(["--gpu"]).Tray.ShouldBeFalse();
     }
+
+    [Fact]
+    public void NotifyModeIsRecognised()
+    {
+        StartOptions.Parse(["--notify", "--data-dir", "x"]).Notify.ShouldBeTrue();
+        StartOptions.Parse([]).Notify.ShouldBeFalse();
+    }
 }

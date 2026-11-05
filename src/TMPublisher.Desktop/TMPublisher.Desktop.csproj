@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Avalonia desktop app: views, view models, tray, autostart, single instance, first-run wizard, composition root. -->
+  <!--
+    Avalonia window program: views, view models, autostart, single instance, first-run wizard, composition root, and the short-lived
+    notification process ("notify" mode). It runs only while the user has the window open; the background scheduler (TMPublisher.Background)
+    sends the posts.
+  -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <AssemblyName>TMPublisher</AssemblyName>
@@ -7,10 +11,7 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
-  <!--
-    Memory: the app runs in the tray all day. Workstation GC (one heap) without the background GC thread. Measured for 0.1.2 (managed heap
-    is only 4-7 MB): System.GC.ConserveMemory=5 and TieredPGO=false changed nothing measurable and are not set.
-  -->
+  <!-- Memory: workstation GC (one heap) without the background GC thread (measured for 0.1.2: the managed heap is only 4-7 MB). -->
   <PropertyGroup>
     <ServerGarbageCollector>false</ServerGarbageCollector>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
@@ -22,18 +23,15 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
-    <PackageReference Include="Microsoft.Win32.SystemEvents" />
-    <PackageReference Include="Tmds.DBus.Protocol" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TMPublisher.Core\TMPublisher.Core.csproj" />
     <ProjectReference Include="..\TMPublisher.Platforms\TMPublisher.Platforms.csproj" />
     <ProjectReference Include="..\TMPublisher.Storage\TMPublisher.Storage.csproj" />
     <ProjectReference Include="..\TMPublisher.Scheduling\TMPublisher.Scheduling.csproj" />
+    <ProjectReference Include="..\TMPublisher.Runtime\TMPublisher.Runtime.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Language files are embedded (WithCulture=false: the .en/.tr suffix is not a satellite culture). -->
-    <EmbeddedResource Include="Lang\*.json" LogicalName="TMPublisher.Lang.%(Filename)%(Extension)" WithCulture="false" />
     <AvaloniaResource Include="Assets\Fonts\*.ttf" />
     <AvaloniaResource Include="Assets\app.ico;Assets\app-256.png" />
     <!-- Font licenses travel inside the program (OFL: the license must accompany the font); the Linux archive also has them as files. -->

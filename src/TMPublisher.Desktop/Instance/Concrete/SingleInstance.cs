@@ -1,25 +1,25 @@
 using System.IO.Pipes;
 using System.Security.Cryptography;
 using System.Text;
+using TMPublisher.Runtime.Instance;
 
 namespace TMPublisher.Desktop.Instance;
 
 /// <summary>
-/// One running app per data folder: a named mutex decides, a named pipe (a Unix socket on Linux) carries "show your window" from a second
-/// start to the first.
+/// One window per data folder: the first start holds <c>window-instance.lock</c> in the data folder (<see cref="InstanceLock"/>; a named mutex is
+/// scoped to the login session on Linux), a named pipe (a Unix socket on Linux) carries "show your window" from a second start to the first.
 /// </summary>
 public sealed class SingleInstance : IDisposable
 {
-    private readonly Mutex _mutex;
+    private readonly InstanceLock? _lock;
     private readonly string _name;
     private readonly CancellationTokenSource _stop = new();
 
-    private SingleInstance(Mutex mutex, string name, bool first)
+    private SingleInstance(InstanceLock? held, string name)
     {
-        _mutex = mutex;
+        _lock = held;
         _name = name;
-        IsFirst = first;
-        if (first)
+        if (IsFirst)
         {
             _ = ListenAsync();
         }
@@ -28,30 +28,34 @@ public sealed class SingleInstance : IDisposable
     /// <summary>Raised (on a pool thread) when a second start asks for the window.</summary>
     public event EventHandler? ShowRequested;
 
-    /// <summary>Whether this is the first instance.</summary>
-    public bool IsFirst { get; }
+    /// <summary>Whether this is the first window (it holds the lock file).</summary>
+    public bool IsFirst => _lock is not null;
 
-    /// <summary>Takes the instance lock of the data folder.</summary>
+    /// <summary>Takes the window lock of the data folder (the folder must exist).</summary>
     public static SingleInstance Acquire(string dataDirectory)
     {
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(dataDirectory).ToUpperInvariant())))[..16];
-        var name = "TMPublisher-" + hash;
-        var mutex = new Mutex(true, name, out var created);
-        return new SingleInstance(mutex, name, created);
+        var held = InstanceLock.TryAcquire(dataDirectory, InstanceLock.Window, out var reason);
+        if (held is null)
+        {
+            Console.Error.WriteLine("TM Publisher is already open for this data folder (" + reason + ").");
+        }
+
+        return new SingleInstance(held, "TMPublisher-" + hash + "-window");
     }
 
-    /// <summary>Asks the first instance to show its window.</summary>
+    /// <summary>Asks the first window to show itself.</summary>
     public void SignalFirst()
     {
         try
         {
-            using var client = new NamedPipeClientStream(".", _name, PipeDirection.Out);
+            using var client = new NamedPipeClientStream(".", _name, PipeDirection.Out, PipeOptions.CurrentUserOnly);
             client.Connect(2000);
             client.Write("show\n"u8);
         }
-        catch (Exception ex) when (ex is IOException or TimeoutException)
+        catch (Exception ex) when (ex is IOException or TimeoutException or UnauthorizedAccessException)
         {
-            // The first instance is closing or not listening yet; nothing else to do for a second start.
+            // The first window is closing or not listening yet; nothing else to do for a second start.
             Console.Error.WriteLine("TM Publisher is already running: " + ex.Message);
         }
     }
@@ -60,12 +64,7 @@ public sealed class SingleInstance : IDisposable
     public void Dispose()
     {
         _stop.Cancel();
-        if (IsFirst)
-        {
-            _mutex.ReleaseMutex();
-        }
-
-        _mutex.Dispose();
+        _lock?.Dispose();
         _stop.Dispose();
     }
 
@@ -75,7 +74,8 @@ public sealed class SingleInstance : IDisposable
         {
             try
             {
-                await using var server = new NamedPipeServerStream(_name, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                await using var server = new NamedPipeServerStream(_name, PipeDirection.In, 1, PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await server.WaitForConnectionAsync(_stop.Token).ConfigureAwait(false);
                 var buffer = new byte[16];
                 _ = await server.ReadAsync(buffer, _stop.Token).ConfigureAwait(false);

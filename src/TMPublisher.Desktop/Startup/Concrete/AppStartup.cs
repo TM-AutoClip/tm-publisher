@@ -11,24 +11,25 @@ using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
 using TMPublisher.Desktop.ViewModels;
 using TMPublisher.Desktop.Views;
+using TMPublisher.Runtime.Instance;
+using TMPublisher.Runtime.Paths;
 using TMPublisher.Storage.Keys;
 
 namespace TMPublisher.Desktop.Startup;
 
 /// <summary>
-/// Startup flow: first run (language → new start or restore) · unlock (automatic keyring, or master password) · main window + tray +
-/// startup tasks. Closing the main window keeps the app running in the tray: the window is closed and released there and made again when
-/// opened (<see cref="MainWindowHost"/>; it minimizes on Linux, where a tray host is not guaranteed). The app ends with Quit (tray menu or
-/// the sidebar) or when the operating system shuts down or logs off.
+/// Startup flow of the window program: first run (language → new start or restore) · unlock (automatic keyring, or master password) · main
+/// window + startup tasks (the background scheduler is started if needed and gets the key of a master-password database). Closing the main
+/// window ends the window program; the background scheduler keeps sending posts.
 /// </summary>
 public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer text, UiPreferencesFile preferences, AppSession session,
-    WindowHost windows, MainWindowHost main, TrayHost tray, IOsModule os, ILogger<AppStartup> logger)
+    WindowHost windows, MainWindowHost main, IAutostart autostart, AppPaths paths, ILogger<AppStartup> logger)
 {
     private IClassicDesktopStyleApplicationLifetime? _desktop;
     private ShellViewModel? _shell;
 
     /// <summary>Runs the flow.</summary>
-    public void Run(IClassicDesktopStyleApplicationLifetime desktop, bool startHidden)
+    public void Run(IClassicDesktopStyleApplicationLifetime desktop)
     {
         ArgumentNullException.ThrowIfNull(desktop);
         _desktop = desktop;
@@ -41,7 +42,7 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
                 ShowFirstRun(language.Length == 0 ? FirstRunStep.Language : FirstRunStep.Choice);
                 break;
             case VaultState.Locked when vault.Method is { } method && method != KeyMethods.Password:
-                _ = OpenAutomaticAsync(startHidden);
+                _ = OpenAutomaticAsync();
                 break;
             default:
                 ShowUnlock(null);
@@ -49,25 +50,22 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         }
     }
 
-    /// <summary>Shows and activates the main window, making it again if it was released to the tray (tray, second start).</summary>
+    /// <summary>Shows and activates the main window (a second start of the window program asks for this).</summary>
     public void ShowMainWindow() => Dispatcher.UIThread.Post(() =>
     {
-        if (_shell is not { } shell)
+        if (_shell is not null)
         {
-            return;
+            main.Show();
         }
-
-        main.Show();
-        if (!shell.IsStarted)
+        else
         {
-            // Started in the tray: the first page is opened (and its data read) only now.
-            _ = shell.StartAsync();
+            windows.Active?.Activate();
         }
     });
 
     /// <summary>
-    /// An exception that escaped a button or a window event (the UI dispatcher): logged with its cause and shown on the status line; the app
-    /// and its scheduler keep running instead of ending.
+    /// An exception that escaped a button or a window event (the UI dispatcher): logged with its cause and shown on the status line; the
+    /// window keeps running instead of ending.
     /// </summary>
     public void ReportUnhandled(Exception exception)
     {
@@ -79,11 +77,11 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         }
     }
 
-    /// <summary>Ends the app.</summary>
+    /// <summary>Ends the window program (the background scheduler keeps running).</summary>
     public void Quit()
     {
         main.BeginQuit();
-        logger.LogInformation("Quit requested");
+        logger.LogInformation("Window program ending");
         _desktop?.Shutdown();
     }
 
@@ -99,7 +97,7 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         };
         model.Completed += async (_, _) =>
         {
-            await StartMainAsync(startHidden: false).ConfigureAwait(true);
+            await StartMainAsync().ConfigureAwait(true);
             window.Close();
         };
         Present(window);
@@ -112,7 +110,7 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         var window = new UnlockWindow { DataContext = model };
         model.Completed += async (_, _) =>
         {
-            await StartMainAsync(startHidden: false).ConfigureAwait(true);
+            await StartMainAsync().ConfigureAwait(true);
             window.Close();
         };
         model.RestoreRequested += (_, _) =>
@@ -139,12 +137,12 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         window.Show();
     }
 
-    private async Task OpenAutomaticAsync(bool startHidden)
+    private async Task OpenAutomaticAsync()
     {
         try
         {
             await vault.OpenAsync(CancellationToken.None).ConfigureAwait(true);
-            await StartMainAsync(startHidden).ConfigureAwait(true);
+            await StartMainAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -153,19 +151,21 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         }
     }
 
-    private async Task StartMainAsync(bool startHidden)
+    private async Task StartMainAsync()
     {
         await session.LoadAsync(CancellationToken.None).ConfigureAwait(true);
-        tray.Create(ShowMainWindow, Quit);
         var shell = services.GetRequiredService<ShellViewModel>();
         _shell = shell;
         shell.QuitRequested += (_, _) => Quit();
-        main.Configure(() => new MainWindow { DataContext = shell, Icon = AppIcon() }, () => os.TrayIsReliable && tray.HasIcon,
-            window => _desktop!.MainWindow = window);
-        if (!startHidden)
+        main.Configure(() => new MainWindow { DataContext = shell, Icon = AppIcon() }, shell.ConfirmClose, window => _desktop!.MainWindow = window);
+        main.Closed += (_, _) => Quit();
+        main.Show();
+        await shell.StartAsync().ConfigureAwait(true);
+        RepairAutostart(shell);
+        if (InstanceLock.OldVersionRuns(paths.DataDirectory))
         {
-            main.Show();
-            await shell.StartAsync().ConfigureAwait(true);
+            logger.LogError("An older TM Publisher (0.1.0-0.1.2) runs on the same data; the background scheduler does not start next to it");
+            shell.Status = text["scheduler.old_version"];
         }
 
         foreach (var task in services.GetServices<IStartupTask>())
@@ -180,12 +180,18 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
                 shell.Status = text.Format("startup.task_failed", ex.Message);
             }
         }
+    }
 
-        if (startHidden)
+    private void RepairAutostart(ShellViewModel shell)
+    {
+        try
         {
-            // Start-up garbage (database model, first reads) is not needed in the tray: one compacting collection, then the log line;
-            // skipped when the window was opened during start-up (the app is not in the tray then).
-            main.SettleInTray("started in the tray");
+            autostart.Repair();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            logger.LogError(ex, "The autostart entry could not be moved to the background scheduler");
+            shell.Status = text.Format("startup.task_failed", ex.Message);
         }
     }
 

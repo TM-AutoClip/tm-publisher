@@ -8,4 +8,9 @@ internal sealed class FakeAutostart : IAutostart
     public bool IsEnabled { get; private set; }
 
     public void Set(bool enabled) => IsEnabled = enabled;
+
+    public void Repair()
+    {
+        // Nothing to move in tests.
+    }
 }

@@ -1,18 +1,16 @@
 using System.Globalization;
-using System.Text.Json;
 using TMPublisher.Core.Localization;
-using TMPublisher.Desktop.Paths;
+using TMPublisher.Runtime.Localization;
 
 namespace TMPublisher.Desktop.Localization;
 
 /// <summary>
-/// English and Turkish texts from the embedded <c>Lang/en.json</c> and <c>Lang/tr.json</c>. A missing Turkish key falls back to English, a
+/// English and Turkish texts (<see cref="LanguageFiles"/>, shared with the background scheduler). A missing Turkish key falls back to English, a
 /// missing English key shows the key (the parity test keeps both files complete). The language is chosen at start; changing it applies
 /// after a restart.
 /// </summary>
 public sealed class Localizer : ILocalizer
 {
-    private static readonly string[] Languages = ["en", "tr"];
     private readonly Dictionary<string, string> _english = Load("en");
     private Dictionary<string, string> _current;
 
@@ -37,12 +35,12 @@ public sealed class Localizer : ILocalizer
     public string this[string key] => _current.TryGetValue(key, out var value) ? value : _english.GetValueOrDefault(key, key);
 
     /// <summary>Supported language codes.</summary>
-    public static IReadOnlyList<string> Supported => Languages;
+    public static IReadOnlyList<string> Supported => LanguageFiles.Supported;
 
     /// <summary>Switches the language (unknown codes mean English).</summary>
     public void Use(string? language)
     {
-        Language = Languages.Contains(language) ? language! : "en";
+        Language = language is not null && LanguageFiles.Supported.Contains(language) ? language : "en";
         _current = Language == "en" ? _english : Load(Language);
     }
 
@@ -55,10 +53,5 @@ public sealed class Localizer : ILocalizer
     /// <summary>All keys of a language file (tests).</summary>
     internal static IReadOnlyCollection<string> Keys(string language) => Load(language).Keys;
 
-    private static Dictionary<string, string> Load(string language)
-    {
-        using var stream = typeof(Localizer).Assembly.GetManifestResourceStream($"TMPublisher.Lang.{language}.json")
-            ?? throw new InvalidOperationException($"Language file '{language}' is not embedded.");
-        return JsonSerializer.Deserialize(stream, DesktopJsonContext.Default.DictionaryStringString) ?? [];
-    }
+    private static Dictionary<string, string> Load(string language) => LanguageFiles.Load(language);
 }

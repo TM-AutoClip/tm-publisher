@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Logging;
-using TMPublisher.Desktop.Paths;
+using TMPublisher.Runtime.Os;
+using TMPublisher.Runtime.Paths;
 
 namespace TMPublisher.Desktop.Os;
 
 /// <summary>
-/// freedesktop autostart: <c>$XDG_CONFIG_HOME/autostart/tm-publisher.desktop</c> (~/.config/autostart). Turning it off writes
+/// freedesktop autostart of the background scheduler: <c>$XDG_CONFIG_HOME/autostart/tm-publisher.desktop</c> (~/.config/autostart). Turning it off writes
 /// <c>Hidden=true</c>, which the specification defines as "disabled" and which also hides a system-wide entry of the same name.
 /// </summary>
 public sealed class LinuxAutostart(AppPaths paths, ILogger<LinuxAutostart> logger) : IAutostart
@@ -26,12 +27,12 @@ public sealed class LinuxAutostart(AppPaths paths, ILogger<LinuxAutostart> logge
     public void Set(bool enabled)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(File)!);
-        var exec = Exec(Environment.ProcessPath ?? string.Empty, AutostartArguments.For(paths));
+        var exec = Expected();
         System.IO.File.WriteAllText(File, string.Join('\n',
             "[Desktop Entry]",
             "Type=Application",
-            "Name=TM Publisher",
-            "Comment=Publish one post to many social accounts",
+            "Name=TM Publisher scheduler",
+            "Comment=Sends the scheduled posts of TM Publisher in the background",
             "Exec=" + exec,
             "Terminal=false",
             "X-GNOME-Autostart-enabled=" + (enabled ? "true" : "false"),
@@ -39,6 +40,25 @@ public sealed class LinuxAutostart(AppPaths paths, ILogger<LinuxAutostart> logge
             string.Empty));
         logger.LogInformation("Autostart {State}{Folder}", enabled ? "enabled" : "disabled", paths.IsDefaultDirectory ? string.Empty : " (own data folder)");
     }
+
+    /// <inheritdoc />
+    public void Repair()
+    {
+        if (!System.IO.File.Exists(File) || ProgramFiles.Scheduler is null)
+        {
+            return;
+        }
+
+        if (System.IO.File.ReadAllLines(File).FirstOrDefault(l => l.StartsWith("Exec=", StringComparison.Ordinal)) is { } exec
+            && AutostartArguments.IsOldEntryOf(paths, exec))
+        {
+            var enabled = IsEnabled;
+            Set(enabled);
+            logger.LogInformation("Autostart entry moved to the background scheduler ({State})", enabled ? "on" : "off");
+        }
+    }
+
+    private string Expected() => Exec(AutostartArguments.Program(), AutostartArguments.For(paths));
 
     /// <summary>
     /// The Exec value (Desktop Entry specification): each part in double quotes with <c>" ` $ \</c> escaped, then the value escaped as a

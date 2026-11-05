@@ -11,14 +11,18 @@ public sealed partial class ShellViewModel : ObservableObject
 {
     private readonly Localizer _text;
     private readonly ILogger<ShellViewModel> _logger;
+    private readonly TimeProvider _clock;
+    private readonly List<PageViewModelBase> _opened = [];
+    private DateTimeOffset? _warnedAt;
 
     /// <summary>Builds the sidebar from every registered page (the pages themselves are created when first opened).</summary>
-    public ShellViewModel(IEnumerable<PageEntry> pages, PageNavigator navigator, Localizer text, ILogger<ShellViewModel> logger)
+    public ShellViewModel(IEnumerable<PageEntry> pages, PageNavigator navigator, Localizer text, TimeProvider clock, ILogger<ShellViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(navigator);
         ArgumentNullException.ThrowIfNull(text);
         _text = text;
         _logger = logger;
+        _clock = clock;
         Items = new ObservableCollection<NavItemViewModel>(pages.OrderBy(p => p.Order).Select(p => new NavItemViewModel(this, p, text[p.TitleKey])));
         navigator.Requested += (_, page) => _ = NavigateAsync(page);
     }
@@ -34,15 +38,39 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     public partial string Status { get; set; } = string.Empty;
 
-    /// <summary>The user chose Quit in the window (always there, also on desktops without a tray).</summary>
+    /// <summary>The user chose "Close" in the window (the window program ends; the background scheduler keeps sending).</summary>
     public event EventHandler? QuitRequested;
 
-    /// <summary>Ends the app.</summary>
+    /// <summary>Closes the window program.</summary>
     [RelayCommand]
     private void Quit()
     {
-        _logger.LogInformation("Quit chosen in the main window");
+        _logger.LogInformation("Close chosen in the main window");
         QuitRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Whether the window may close now: when an opened page holds unsaved input, the first close is refused once, that page is shown with a
+    /// note, and a second close within a short time goes through (the input is then discarded).
+    /// </summary>
+    public bool ConfirmClose()
+    {
+        if (_opened.FirstOrDefault(p => p.HasUnsavedWork) is not { } page)
+        {
+            return true;
+        }
+
+        var now = _clock.GetUtcNow();
+        if (_warnedAt is { } warned && now - warned < TimeSpan.FromSeconds(30))
+        {
+            _logger.LogInformation("Window closed with unsaved input on {Page} after the note", page.GetType().Name);
+            return true;
+        }
+
+        _warnedAt = now;
+        page.Status = _text["window.unsaved_close"];
+        _ = NavigateAsync(page);
+        return false;
     }
 
     /// <summary>Whether a page has been opened (the window was shown at least once).</summary>
@@ -66,6 +94,11 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         Current = page;
+        if (!_opened.Contains(page))
+        {
+            _opened.Add(page);
+        }
+
         try
         {
             await page.ActivateAsync().ConfigureAwait(true);

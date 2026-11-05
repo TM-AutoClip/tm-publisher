@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -6,6 +7,8 @@ using TMPublisher.Core.Posts;
 using TMPublisher.Desktop.Localization;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
+using TMPublisher.Desktop.Scheduler;
+using TMPublisher.Runtime.Ipc;
 using TMPublisher.Desktop.Startup;
 using TMPublisher.Storage.Backup;
 using TMPublisher.Storage.Crypto;
@@ -13,11 +16,17 @@ using TMPublisher.Storage.Keys;
 
 namespace TMPublisher.Desktop.ViewModels;
 
-/// <summary>Settings: language, notifications, autostart, protection (keyring / master password), backup and restore, about.</summary>
+/// <summary>
+/// Settings: language, notifications, autostart, the background scheduler (state, start / stop, pause / resume), protection (keyring / master
+/// password), backup and restore, about.
+/// </summary>
 public sealed partial class SettingsViewModel(AppSession session, UiPreferencesFile preferences, IAutostart autostart, Vault vault, BackupService backup,
-    UiMasterPassword masterPassword, FileDialogs dialogs, IAppPaths paths, IPostScheduler scheduler, Localizer text, ILogger<SettingsViewModel> logger)
+    UiMasterPassword masterPassword, FileDialogs dialogs, IAppPaths paths, IPostScheduler scheduler, SchedulerSupervisor supervisor, TimeProvider clock,
+    Localizer text, ILogger<SettingsViewModel> logger)
     : PageViewModelBase, IPageInfo
 {
+    private bool _watching;
+
     /// <inheritdoc />
     public static string TitleKey => "nav.settings";
 
@@ -81,6 +90,26 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
     [ObservableProperty]
     public partial string RestorePassword { get; set; } = string.Empty;
 
+    /// <summary>What the background scheduler does (localized).</summary>
+    [ObservableProperty]
+    public partial string SchedulerText { get; set; } = string.Empty;
+
+    /// <summary>The next post and the reason of a problem (localized; empty when none).</summary>
+    [ObservableProperty]
+    public partial string SchedulerDetail { get; set; } = string.Empty;
+
+    /// <summary>Whether the background scheduler runs.</summary>
+    [ObservableProperty]
+    public partial bool SchedulerRunning { get; set; }
+
+    /// <summary>Whether sending is paused.</summary>
+    [ObservableProperty]
+    public partial bool SchedulerPaused { get; set; }
+
+    /// <summary>Whether it can be paused now (running, not paused).</summary>
+    [ObservableProperty]
+    public partial bool SchedulerCanPause { get; set; }
+
     /// <summary>Data folder.</summary>
     public string DataFolder => paths.DataDirectory;
 
@@ -104,7 +133,74 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
             session.PendingMessage = null;
         }
 
+        if (!_watching)
+        {
+            _watching = true;
+            supervisor.StateChanged += (_, _) => Dispatcher.UIThread.Post(ShowScheduler);
+        }
+
+        ShowScheduler();
+        _ = supervisor.RefreshAsync(CancellationToken.None);
         return Task.CompletedTask;
+    }
+
+    /// <summary>Starts the background scheduler (and hands the key over when needed).</summary>
+    [RelayCommand]
+    private async Task StartSchedulerAsync()
+    {
+        var state = await supervisor.EnsureRunningAsync(CancellationToken.None).ConfigureAwait(true);
+        if (state.Status == SchedulerStatus.NotRunning)
+        {
+            Status = text.Format("startup.task_failed", state.Message);
+        }
+    }
+
+    /// <summary>Stops the background scheduler (not while a post is being sent).</summary>
+    [RelayCommand]
+    private async Task StopSchedulerAsync()
+    {
+        Status = await supervisor.StopAndWaitAsync(CancellationToken.None).ConfigureAwait(true) ? text["scheduler.stopped"] : text["scheduler.busy"];
+    }
+
+    /// <summary>Pauses sending.</summary>
+    [RelayCommand]
+    private async Task PauseSchedulerAsync() => ShowReply(await supervisor.PauseAsync(CancellationToken.None).ConfigureAwait(true));
+
+    /// <summary>Resumes sending.</summary>
+    [RelayCommand]
+    private async Task ResumeSchedulerAsync() => ShowReply(await supervisor.ResumeAsync(CancellationToken.None).ConfigureAwait(true));
+
+    /// <summary>Reads the scheduler's state again.</summary>
+    [RelayCommand]
+    private Task RefreshSchedulerAsync() => supervisor.RefreshAsync(CancellationToken.None);
+
+    private void ShowReply(SchedulerReply reply)
+    {
+        if (!reply.IsOk)
+        {
+            Status = text.Format("error.generic", reply.Text);
+        }
+    }
+
+    private void ShowScheduler()
+    {
+        var state = supervisor.State;
+        SchedulerText = text["scheduler.state." + state.Status.ToString().ToLowerInvariant()];
+        SchedulerRunning = state.Status != SchedulerStatus.NotRunning;
+        SchedulerPaused = state.Status == SchedulerStatus.Paused;
+        SchedulerCanPause = state.Status == SchedulerStatus.Running;
+        var details = new List<string>();
+        if (state.NextPostUtc is { } next && state.Status is SchedulerStatus.Running or SchedulerStatus.Paused)
+        {
+            details.Add(text.Format("scheduler.next", TimeZoneInfo.ConvertTime(next, clock.LocalTimeZone).ToString("g", text.Culture)));
+        }
+
+        if (state.Message.Length > 0 && state.Status is SchedulerStatus.NotRunning or SchedulerStatus.Error)
+        {
+            details.Add(text.Format("scheduler.reason", state.Message));
+        }
+
+        SchedulerDetail = string.Join(Environment.NewLine, details);
     }
 
     /// <summary>Saves the general settings.</summary>
@@ -128,6 +224,7 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
                 autostart.Set(StartWithSystem);
             }
 
+            scheduler.Wake();
             Status = text[languageChanged ? "settings.saved_restart" : "settings.saved"];
         }
         catch (Exception ex)
@@ -218,12 +315,20 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
             return;
         }
 
+        // The background scheduler must not write to the database while it is replaced: it is stopped first (not while a post is being sent)
+        // and started again on the restored data.
+        if (!await supervisor.StopAndWaitAsync(CancellationToken.None).ConfigureAwait(true))
+        {
+            Status = text["restore.scheduler_busy"];
+            return;
+        }
+
         try
         {
             var report = await backup.RestoreAsync(file, RestorePassword, vault.AutomaticProtector!, CancellationToken.None).ConfigureAwait(true);
             await session.LoadAsync(CancellationToken.None).ConfigureAwait(true);
 
-            // The schedule, the follow-ups and the interrupted posts of the restored data are handled now, not at the next start.
+            // The background scheduler starts again on the restored data (interrupted posts, follow-ups and the timer are handled at its start).
             await scheduler.ReloadAsync(CancellationToken.None).ConfigureAwait(true);
             RestorePassword = string.Empty;
             Status = report.MissingFiles.Count == 0
@@ -235,11 +340,13 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
         {
             logger.LogWarning(ex, "Restore failed");
             Status = text["restore.wrong_password"];
+            await scheduler.ReloadAsync(CancellationToken.None).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Restore failed");
             Status = text.Format("error.generic", ex.Message);
+            await scheduler.ReloadAsync(CancellationToken.None).ConfigureAwait(true);
         }
     }
 
@@ -248,6 +355,9 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
         try
         {
             await vault.ChangeProtectionAsync(protector(), CancellationToken.None).ConfigureAwait(true);
+
+            // The running scheduler keeps its key; one waiting for it gets it now.
+            await supervisor.EnsureRunningAsync(CancellationToken.None).ConfigureAwait(true);
             await ActivateAsync().ConfigureAwait(true);
             Status = text["settings.protection.changed"];
         }

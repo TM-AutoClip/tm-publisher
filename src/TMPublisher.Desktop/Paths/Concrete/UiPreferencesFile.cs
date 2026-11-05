@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using TMPublisher.Runtime.Paths;
 
 namespace TMPublisher.Desktop.Paths;
 

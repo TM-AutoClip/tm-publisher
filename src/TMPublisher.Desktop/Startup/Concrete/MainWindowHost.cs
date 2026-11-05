@@ -1,45 +1,40 @@
-using System.Runtime;
 using Avalonia.Controls;
-using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
-using TMPublisher.Desktop.Logging;
 
 namespace TMPublisher.Desktop.Startup;
 
 /// <summary>
-/// The main window's life. It is created when it is first shown (a start in the tray makes none). When the user closes it and a tray icon
-/// is there, it is really closed and released instead of hidden: its views, bindings, fonts in use and drawing surfaces go, so the app spends
-/// the day in the tray with little more than its scheduler. The next "Open" makes a new window over the same view models (singletons), so
-/// an unfinished post and the shown page are there again. Without a reliable tray the window minimizes (it is the only way back).
-/// Notifications are their own small windows and do not need this one.
+/// The main window's life. Since 0.1.3 the window program runs only while the window is open: closing the window ends it, and the background
+/// scheduler (its own small process) keeps sending posts and shows their notifications. A page with unsaved input refuses the first close
+/// once (<see cref="Configure"/>'s <c>canClose</c>). Logging off or shutting down is never refused.
 /// </summary>
 public sealed class MainWindowHost(WindowHost windows, ILogger<MainWindowHost> logger)
 {
     private Func<Window>? _create;
-    private Func<bool> _canRelease = static () => false;
+    private Func<bool> _canClose = static () => true;
     private Action<Window?> _setMain = static _ => { };
 
-    /// <summary>The open main window; <c>null</c> before the first show and after it was released to the tray.</summary>
+    /// <summary>The open main window; <c>null</c> before the first show and after it closed.</summary>
     public Window? Window { get; private set; }
 
-    /// <summary>The app is ending (Quit, operating system shutdown): closing is not refused and nothing is released.</summary>
+    /// <summary>The app is ending (Quit, operating system shutdown): closing is not refused.</summary>
     public bool Quitting { get; private set; }
 
-    /// <summary>A window was closed and released to the tray (raised after the memory is given back).</summary>
-    public event EventHandler? Released;
+    /// <summary>The window closed (the window program ends).</summary>
+    public event EventHandler? Closed;
 
     /// <summary>
-    /// Sets how a window is made (<paramref name="create"/>), whether closing may release it (<paramref name="canRelease"/>: a tray icon is
-    /// there to bring it back) and who learns the current main window (<paramref name="setMain"/>: the desktop lifetime).
+    /// Sets how a window is made (<paramref name="create"/>), whether the user may close it now (<paramref name="canClose"/>: no unsaved input,
+    /// or the user closed again after the note) and who learns the current main window (<paramref name="setMain"/>: the desktop lifetime).
     /// </summary>
-    public void Configure(Func<Window> create, Func<bool> canRelease, Action<Window?> setMain)
+    public void Configure(Func<Window> create, Func<bool> canClose, Action<Window?> setMain)
     {
         _create = create ?? throw new ArgumentNullException(nameof(create));
-        _canRelease = canRelease ?? throw new ArgumentNullException(nameof(canRelease));
+        _canClose = canClose ?? throw new ArgumentNullException(nameof(canClose));
         _setMain = setMain ?? throw new ArgumentNullException(nameof(setMain));
     }
 
-    /// <summary>Shows the window, making a new one if there is none, and brings it to the front.</summary>
+    /// <summary>Shows the window, making it if there is none, and brings it to the front.</summary>
     public Window Show()
     {
         if (Window is null)
@@ -80,14 +75,10 @@ public sealed class MainWindowHost(WindowHost windows, ILogger<MainWindowHost> l
             return;
         }
 
-        if (_canRelease())
+        if (!_canClose())
         {
-            // Closed and released in OnClosed; the tray icon brings a new window.
-            return;
+            e.Cancel = true;
         }
-
-        e.Cancel = true;
-        ((Window)sender!).WindowState = WindowState.Minimized;
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -95,8 +86,6 @@ public sealed class MainWindowHost(WindowHost windows, ILogger<MainWindowHost> l
         var window = (Window)sender!;
         window.Closing -= OnClosing;
         window.Closed -= OnClosed;
-
-        // Nothing may keep the closed window alive: not the dialog owner, not the lifetime, not the bindings to the singleton view models.
         if (Window == window)
         {
             Window = null;
@@ -109,47 +98,6 @@ public sealed class MainWindowHost(WindowHost windows, ILogger<MainWindowHost> l
 
         _setMain(null);
         window.DataContext = null;
-        if (Quitting)
-        {
-            return;
-        }
-
-        // After the close has finished (the visual tree and the drawing surface are gone), give the freed memory back to the system once:
-        // a compacting full collection (large object heap included) lets the runtime return the emptied segments. Not repeated, no timer.
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (SettleInTray("window closed"))
-            {
-                Released?.Invoke(this, EventArgs.Empty);
-            }
-        }, DispatcherPriority.Background);
-    }
-
-    /// <summary>
-    /// When no main window is open (the app is in the tray): one compacting collection and the memory line in the log. Returns
-    /// <c>false</c> and does nothing while a window is open (it was opened during start-up, or again right after closing).
-    /// </summary>
-    public bool SettleInTray(string reason)
-    {
-        if (Window is not null)
-        {
-            return false;
-        }
-
-        Compact();
-        MemoryUse.LogTrayEntry(logger, reason);
-        return true;
-    }
-
-    /// <summary>One blocking, compacting collection of every generation, the large object heap too.</summary>
-    internal static void Compact()
-    {
-        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
-
-        // Native drawing objects (Skia) of the closed window are freed by finalizers; collect what they released.
-        GC.WaitForPendingFinalizers();
-        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+        Closed?.Invoke(this, EventArgs.Empty);
     }
 }

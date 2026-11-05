@@ -1,4 +1,3 @@
-using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Notifications;
 using TMPublisher.Desktop.Startup;
@@ -7,57 +6,30 @@ using TMPublisher.Desktop.Views;
 namespace TMPublisher.Desktop.Notifications;
 
 /// <summary>
-/// Bottom-right notifications in the app's own small window (decision: works the same on Windows and on every Linux desktop without
-/// AUMID registration, D-Bus notification daemons or their own time limits; the duration and on/off are fully ours). Up to three are stacked;
-/// each closes after the user's duration (default one minute) or with its close button. Off in Settings means nothing is shown.
+/// The window's notifications (<see cref="ToastStack"/>), following the user's settings: off means nothing is shown, the duration is the
+/// user's (default one minute). The background scheduler's notifications arrive already filtered and are shown with their own duration.
 /// </summary>
-public sealed class ToastNotifier(AppSession session, ILogger<ToastNotifier> logger) : INotifier
+public sealed class ToastNotifier(AppSession session, ToastStack stack, ILogger<ToastNotifier> logger) : INotifier
 {
-    private const int MaxVisible = 3;
-    private readonly List<ToastWindow> _open = [];
-
     /// <summary>Open windows (tests).</summary>
-    internal IReadOnlyList<ToastWindow> Open => _open;
+    internal IReadOnlyList<ToastWindow> Open => stack.Open;
 
     /// <inheritdoc />
     public void Notify(AppNotification notification)
     {
         ArgumentNullException.ThrowIfNull(notification);
         logger.LogInformation("Notification ({Kind}): {Title}", notification.Kind, notification.Title);
-        if (!session.Settings.NotificationsEnabled)
+        if (session.Settings.NotificationsEnabled)
         {
-            return;
+            stack.Show(notification, TimeSpan.FromSeconds(Math.Max(3, session.Settings.NotificationSeconds)));
         }
-
-        var duration = TimeSpan.FromSeconds(Math.Max(3, session.Settings.NotificationSeconds));
-        Dispatcher.UIThread.Post(() => Show(new ToastViewModel(notification, duration)));
     }
 
-    private void Show(ToastViewModel model)
+    /// <summary>Shows a notification of the background scheduler (it applied the settings already).</summary>
+    public void ShowFromScheduler(AppNotification notification, int seconds)
     {
-        while (_open.Count >= MaxVisible)
-        {
-            _open[0].Close();
-        }
-
-        var window = new ToastWindow { DataContext = model };
-        window.Closed += (_, _) =>
-        {
-            _open.Remove(window);
-            Arrange();
-        };
-        _open.Add(window);
-        window.Show();
-        Arrange();
-        DispatcherTimer.RunOnce(window.Close, model.Duration);
-    }
-
-    private void Arrange()
-    {
-        var offset = 0;
-        for (var i = _open.Count - 1; i >= 0; i--)
-        {
-            offset += _open[i].PlaceAt(offset);
-        }
+        ArgumentNullException.ThrowIfNull(notification);
+        logger.LogInformation("Notification from the scheduler ({Kind}): {Title}", notification.Kind, notification.Title);
+        stack.Show(notification, TimeSpan.FromSeconds(Math.Max(3, seconds)));
     }
 }

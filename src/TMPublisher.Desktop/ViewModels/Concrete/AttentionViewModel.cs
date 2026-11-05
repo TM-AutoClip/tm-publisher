@@ -115,7 +115,7 @@ public sealed partial class AttentionViewModel : PageViewModelBase, IPageInfo
     [RelayCommand]
     public Task SkipAsync(AttentionRowViewModel? row) => ApplyAsync(row, id => _scheduler.SkipFailedAsync(id, CancellationToken.None));
 
-    private async Task ApplyAsync(AttentionRowViewModel? row, Func<Guid, Task> action)
+    private async Task ApplyAsync(AttentionRowViewModel? row, Func<Guid, Task<bool>> action)
     {
         if (row is null)
         {
@@ -124,7 +124,10 @@ public sealed partial class AttentionViewModel : PageViewModelBase, IPageInfo
 
         try
         {
-            await action(row.Post.Id).ConfigureAwait(true);
+            if (!await action(row.Post.Id).ConfigureAwait(true))
+            {
+                Status = _text["attention.changed"];
+            }
         }
         catch (Exception ex)
         {

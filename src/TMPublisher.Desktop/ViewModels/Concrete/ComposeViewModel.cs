@@ -308,6 +308,9 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
         }
     }
 
+    /// <inheritdoc />
+    public override bool HasUnsavedWork => Title.Trim().Length > 0 || Body.Trim().Length > 0 || Media.Count > 0;
+
     /// <summary>Empties the form.</summary>
     [RelayCommand]
     public void Clear()
@@ -436,8 +439,8 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
     private Post Draft() => new()
     {
         Kind = Kind,
-        Title = Title.Trim(),
-        Body = Body.Trim(),
+        Title = Title.Trim().Normalize(System.Text.NormalizationForm.FormC),
+        Body = Body.Trim().Normalize(System.Text.NormalizationForm.FormC),
         Tags = TagLine.Parse(Tags),
         Media = [.. Media],
     };
@@ -488,6 +491,10 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
             target.PostId = post.Id;
             target.Order = i;
             target.Status = TargetStatus.Pending;
+
+            // Stored in Unicode NFC: the background scheduler (built without ICU) checks lengths on the stored text as it is, and X counts NFC.
+            target.Text = target.Text.Normalize(System.Text.NormalizationForm.FormC);
+            target.Title = target.Title.Normalize(System.Text.NormalizationForm.FormC);
             return target;
         })];
         try

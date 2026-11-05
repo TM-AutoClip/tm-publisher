@@ -118,7 +118,12 @@ public sealed partial class CalendarViewModel(IPostStore posts, IAccountStore ac
 
             if (post.Status is PostStatus.Missed or PostStatus.Blocked)
             {
-                await scheduler.RescheduleAsync(post.Id, at, CancellationToken.None).ConfigureAwait(true);
+                if (!await scheduler.RescheduleAsync(post.Id, at, CancellationToken.None).ConfigureAwait(true))
+                {
+                    Status = text["calendar.cannot_move"];
+                    await LoadAsync().ConfigureAwait(true);
+                    return false;
+                }
             }
             else
             {

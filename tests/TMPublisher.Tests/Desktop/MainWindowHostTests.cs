@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -12,88 +11,64 @@ using TMPublisher.Desktop.Views;
 
 namespace TMPublisher.Tests.Desktop;
 
-/// <summary>The main window is released when it goes to the tray and made again when opened; pages are made on first use.</summary>
+/// <summary>Closing the main window ends the window program (unsaved input refuses the first close once); pages are made on first use.</summary>
 public sealed class MainWindowHostTests
 {
     [AvaloniaFact]
-    public void ClosingWithATrayReleasesTheWindowAndOpeningMakesANewOne()
+    public void ClosingTheWindowEndsTheWindowProgram()
     {
         using var h = new DesktopHarness();
         var shell = h.Services.GetRequiredService<ShellViewModel>();
         var host = h.Services.GetRequiredService<MainWindowHost>();
         var windows = h.Services.GetRequiredService<WindowHost>();
-        var made = 0;
-        var released = 0;
+        var closed = 0;
         Window? lifetimeMain = null;
-        host.Configure(() =>
-        {
-            made++;
-            return new MainWindow { DataContext = shell };
-        }, () => true, w => lifetimeMain = w);
-        host.Released += (_, _) => released++;
+        host.Configure(() => new MainWindow { DataContext = shell }, () => true, w => lifetimeMain = w);
+        host.Closed += (_, _) => closed++;
 
-        var closed = ShowAndClose(host, windows, out var shownWindow);
-        shownWindow.ShouldBeTrue();
+        var window = host.Show();
+        lifetimeMain.ShouldBeSameAs(window);
+        windows.Active.ShouldBeSameAs(window);
+        window.Close();
         Dispatcher.UIThread.RunJobs();
 
+        closed.ShouldBe(1);
         host.Window.ShouldBeNull();
         windows.Active.ShouldBeNull();
         lifetimeMain.ShouldBeNull();
-        released.ShouldBe(1);
-
-        // Nothing (the singleton shell and its sidebar collection, the dialog owner, the lifetime) keeps the closed window alive.
-        for (var i = 0; i < 10 && closed.IsAlive; i++)
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            Dispatcher.UIThread.RunJobs();
-        }
-
-        closed.IsAlive.ShouldBeFalse();
-
-        var again = host.Show();
-        made.ShouldBe(2);
-        again.IsVisible.ShouldBeTrue();
-        again.DataContext.ShouldBeSameAs(shell);
-        lifetimeMain.ShouldBeSameAs(again);
-        windows.Active.ShouldBeSameAs(again);
-        host.BeginQuit();
-        again.Close();
     }
 
     [AvaloniaFact]
-    public void WithoutATrayClosingMinimizesAndKeepsTheWindow()
+    public void UnsavedInputRefusesTheFirstCloseOnce()
     {
         using var h = new DesktopHarness();
+        var shell = h.Services.GetRequiredService<ShellViewModel>();
         var host = h.Services.GetRequiredService<MainWindowHost>();
-        var released = 0;
-        host.Configure(() => new Window(), () => false, _ => { });
-        host.Released += (_, _) => released++;
+        var closed = 0;
+        host.Configure(() => new MainWindow { DataContext = shell }, shell.ConfirmClose, _ => { });
+        host.Closed += (_, _) => closed++;
+        var compose = h.Services.GetRequiredService<ComposeViewModel>();
+        shell.NavigateAsync(compose).GetAwaiter().GetResult();
+        compose.Body = "Not saved yet";
 
         var window = host.Show();
         window.Close();
         Dispatcher.UIThread.RunJobs();
-
-        host.Window.ShouldBeSameAs(window);
+        closed.ShouldBe(0);
         window.IsVisible.ShouldBeTrue();
-        window.WindowState.ShouldBe(WindowState.Minimized);
-        released.ShouldBe(0);
+        compose.Status.ShouldNotBeEmpty();
 
-        host.Show().ShouldBeSameAs(window);
-        window.WindowState.ShouldBe(WindowState.Normal);
-        host.BeginQuit();
         window.Close();
-        host.Window.ShouldBeNull();
+        Dispatcher.UIThread.RunJobs();
+        closed.ShouldBe(1);
     }
 
     [AvaloniaFact]
-    public void QuitClosesWithoutRefusingOrReleasingToTheTray()
+    public void QuitIsNeverRefused()
     {
         using var h = new DesktopHarness();
         var host = h.Services.GetRequiredService<MainWindowHost>();
-        var released = 0;
         host.Configure(() => new Window(), () => false, _ => { });
-        host.Released += (_, _) => released++;
 
         var window = host.Show();
         host.BeginQuit();
@@ -102,24 +77,6 @@ public sealed class MainWindowHostTests
 
         window.IsVisible.ShouldBeFalse();
         host.Window.ShouldBeNull();
-        released.ShouldBe(0);
-    }
-
-    [AvaloniaFact]
-    public void TheTrayLogLineIsWrittenOnlyWhenNoWindowIsOpen()
-    {
-        using var h = new DesktopHarness();
-        var host = h.Services.GetRequiredService<MainWindowHost>();
-        host.Configure(() => new Window(), () => true, _ => { });
-
-        // Started in the tray, but the user opened the window before start-up finished: not in the tray, nothing is written.
-        host.SettleInTray("started in the tray").ShouldBeTrue();
-        var window = host.Show();
-        host.SettleInTray("started in the tray").ShouldBeFalse();
-
-        window.Close();
-        Dispatcher.UIThread.RunJobs();
-        host.SettleInTray("window closed").ShouldBeTrue();
     }
 
     [AvaloniaFact]
@@ -136,7 +93,7 @@ public sealed class MainWindowHostTests
             },
         }).ToList();
 
-        var shell = new ShellViewModel(entries, h.Services.GetRequiredService<PageNavigator>(), h.Services.GetRequiredService<Localizer>(),
+        var shell = new ShellViewModel(entries, h.Services.GetRequiredService<PageNavigator>(), h.Services.GetRequiredService<Localizer>(), TimeProvider.System,
             NullLogger<ShellViewModel>.Instance);
 
         shell.Items.Count.ShouldBe(8);
@@ -149,15 +106,5 @@ public sealed class MainWindowHostTests
         tags.Page.ShouldBeSameAs(tags.Page);
         tags.Page.ShouldBeOfType<TagSetsViewModel>();
         made.Distinct().ShouldBe([typeof(TagSetsViewModel)]);
-    }
-
-    /// <summary>Shows and closes in its own frame, so no local of the test keeps the window alive.</summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference ShowAndClose(MainWindowHost host, WindowHost windows, out bool wasShown)
-    {
-        var window = host.Show();
-        wasShown = window.IsVisible && windows.Active == window && host.Window == window;
-        window.Close();
-        return new WeakReference(window);
     }
 }

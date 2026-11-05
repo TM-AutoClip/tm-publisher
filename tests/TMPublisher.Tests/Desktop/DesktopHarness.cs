@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using TMPublisher.Desktop.Composition;
-using TMPublisher.Desktop.Paths;
+using TMPublisher.Desktop.Scheduler;
+using TMPublisher.Runtime.Paths;
 using TMPublisher.Storage.Crypto;
 
 namespace TMPublisher.Tests.Desktop;
@@ -19,11 +20,16 @@ internal sealed class DesktopHarness : IDisposable
 
             // No real network in tests: every request gets the fake handler's "no route" answer.
             s.AddSingleton(new TMPublisher.Tests.Platforms.FakeHttp().Transport);
+
+            // No background scheduler process is started from a test.
+            s.AddSingleton<ISchedulerLauncher>(Launcher);
             overrides?.Invoke(s);
         });
     }
 
     public AppPaths Paths { get; }
+
+    public FakeSchedulerLauncher Launcher { get; } = new();
 
     public ServiceProvider Services { get; }
 

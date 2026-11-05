@@ -35,6 +35,22 @@
 
       <Border Classes="card">
         <StackPanel Spacing="10">
+          <TextBlock Text="{l:Tr settings.scheduler}" Classes="h2" />
+          <TextBlock Text="{l:Tr settings.scheduler.explain}" Classes="muted" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding SchedulerText}" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding SchedulerDetail}" Classes="small" TextWrapping="Wrap" IsVisible="{Binding SchedulerDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{l:Tr settings.scheduler.start}" Command="{Binding StartSchedulerCommand}" IsVisible="{Binding !SchedulerRunning}" />
+            <Button Content="{l:Tr settings.scheduler.pause}" Command="{Binding PauseSchedulerCommand}" IsVisible="{Binding SchedulerCanPause}" />
+            <Button Content="{l:Tr settings.scheduler.resume}" Command="{Binding ResumeSchedulerCommand}" IsVisible="{Binding SchedulerPaused}" />
+            <Button Content="{l:Tr settings.scheduler.stop}" Command="{Binding StopSchedulerCommand}" IsVisible="{Binding SchedulerRunning}" />
+            <Button Content="{l:Tr settings.scheduler.refresh}" Command="{Binding RefreshSchedulerCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
           <TextBlock Text="{l:Tr settings.protection}" Classes="h2" />
           <TextBlock Text="{Binding Protection}" Classes="muted" TextWrapping="Wrap" />
           <TextBlock Text="{l:Tr password.forgotten_warning}" Classes="warning" />
