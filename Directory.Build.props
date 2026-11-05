@@ -5,7 +5,7 @@
     Warnings are errors: a warning is fixed, never silenced (generated code excluded).
   -->
   <PropertyGroup>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Product>TM Publisher</Product>
     <Company>TM AutoClip contributors</Company>
     <Copyright>Copyright (c) 2026 TM AutoClip contributors</Copyright>
