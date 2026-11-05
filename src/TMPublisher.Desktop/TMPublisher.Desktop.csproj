@@ -28,7 +28,8 @@
     <EmbeddedResource Include="Lang\*.json" LogicalName="TMPublisher.Lang.%(Filename)%(Extension)" WithCulture="false" />
     <AvaloniaResource Include="Assets\Fonts\*.ttf" />
     <AvaloniaResource Include="Assets\app.ico;Assets\app-256.png" />
-    <None Include="Assets\Licenses\*.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="licenses" />
+    <!-- Font licenses travel inside the program (OFL: the license must accompany the font); the Linux archive also has them as files. -->
+    <AvaloniaResource Include="Assets\Licenses\*.txt" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="TMPublisher.Tests" />

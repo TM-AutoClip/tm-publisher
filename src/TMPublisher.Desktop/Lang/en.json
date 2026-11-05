@@ -61,7 +61,7 @@
   "settings.use_keyring": "Use the keyring instead",
   "settings.backup": "Backup",
   "settings.about": "About",
-  "settings.license": "Free and open source under the MIT license. Third-party notices are in the licenses folder next to the app.",
+  "settings.license": "Free and open source under the MIT license. Third-party licenses are listed in THIRD-PARTY-NOTICES.md (in the source repository and the Linux archive); the font licenses are also embedded in the program.",
   "nav.accounts": "Accounts",
   "nav.groups": "Groups",
   "accounts.add": "Add an account",

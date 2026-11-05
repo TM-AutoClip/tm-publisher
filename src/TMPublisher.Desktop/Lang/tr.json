@@ -61,7 +61,7 @@
   "settings.use_keyring": "Bunun yerine anahtarlığı kullan",
   "settings.backup": "Yedek",
   "settings.about": "Hakkında",
-  "settings.license": "MIT lisansıyla ücretsiz ve açık kaynak. Üçüncü taraf bildirimleri programın yanındaki licenses klasöründe.",
+  "settings.license": "MIT lisansıyla ücretsiz ve açık kaynak. Üçüncü taraf lisansları THIRD-PARTY-NOTICES.md dosyasında (kaynak depoda ve Linux arşivinde); yazı tipi lisansları programın içinde de var.",
   "nav.accounts": "Hesaplar",
   "nav.groups": "Gruplar",
   "accounts.add": "Hesap ekle",
