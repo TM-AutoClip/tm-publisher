@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Paths;
@@ -13,6 +14,7 @@ namespace TMPublisher.Storage.Keys;
 /// </summary>
 public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProtector> protectors, ILogger<Vault> logger)
 {
+    private static readonly string[] DatabaseParts = [string.Empty, "-wal", "-shm"];
     private readonly List<IKeyProtector> _protectors = protectors.ToList();
 
     /// <summary>Current state.</summary>
@@ -40,19 +42,36 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
         try
         {
             var envelope = await protector.ProtectAsync(dek, cancellationToken).ConfigureAwait(false);
-            key.Load(dek);
             if (File.Exists(paths.DatabaseFile))
             {
                 // A database without a key file cannot be opened by anyone; it is moved aside, never deleted.
-                File.Move(paths.DatabaseFile, paths.DatabaseFile + ".orphan-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture));
+                MoveDatabaseAside(".orphan-" + Stamp());
             }
 
-            await using (var db = new PublisherDbContextFactory(paths, key).CreateDbContext())
+            key.Load(dek);
+            try
             {
-                await db.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+                await using (var db = new PublisherDbContextFactory(paths, key).CreateDbContext())
+                {
+                    await db.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                KeyFile.Write(paths.KeyFile, envelope);
+            }
+            catch (Exception ex)
+            {
+                // Nothing half-made stays: the key is forgotten and the new empty file removed, so the user can fix the cause and try again.
+                logger.LogError(ex, "Creating the encrypted database failed ({Type}); nothing was kept", ex.GetType().Name);
+                key.Clear();
+                SqliteConnection.ClearAllPools();
+                if (!File.Exists(paths.KeyFile))
+                {
+                    DeleteDatabaseFiles();
+                }
+
+                throw;
             }
 
-            KeyFile.Write(paths.KeyFile, envelope);
             logger.LogInformation("Encrypted database created (key protection: {Method})", protector.Method);
         }
         finally
@@ -65,6 +84,13 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
     public async Task OpenAsync(CancellationToken cancellationToken)
     {
         var envelope = KeyFile.Read(paths.KeyFile) ?? throw new InvalidOperationException("There is no key file; the database was never created here.");
+        if (!File.Exists(paths.DatabaseFile))
+        {
+            logger.LogError("The key file exists but the database file {File} is missing; nothing is created", Path.GetFileName(paths.DatabaseFile));
+            throw new InvalidOperationException("The database file is missing although its key is here; no new empty database was made. Restore a backup, "
+                + "or put the database file back (a restore keeps the previous one as publisher.db.before-restore-<time>).");
+        }
+
         var protector = _protectors.FirstOrDefault(p => p.Method == envelope.Method)
             ?? throw new InvalidOperationException($"The key file uses '{envelope.Method}', which this app does not know.");
         if (!protector.IsAvailable)
@@ -121,24 +147,164 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
     }
 
     /// <summary>
-    /// Installs a database file with its key (used by restore): the file is copied in, the key is sealed with this computer's protector.
+    /// Replaces the database with <paramref name="databaseFile"/> and its key (restore). Whatever can fail (sealing the key, copying the
+    /// file) runs before the current files are touched. The current database (with its <c>-wal</c> / <c>-shm</c> files) and its key file are
+    /// kept under the same <c>.before-restore-&lt;time&gt;</c> name, never deleted, so the previous data can still be opened. Any failure puts
+    /// the previous files and key back. Returns the name the previous database was kept under (empty when there was none).
     /// </summary>
-    public async Task InstallAsync(string databaseFile, byte[] dek, IKeyProtector protector, CancellationToken cancellationToken)
+    public async Task<string> ReplaceAsync(string databaseFile, byte[] dek, IKeyProtector protector, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(protector);
-        if (State == VaultState.Open)
-        {
-            throw new InvalidOperationException("Close the database before replacing it.");
-        }
-
+        ArgumentNullException.ThrowIfNull(dek);
         var envelope = await protector.ProtectAsync(dek, cancellationToken).ConfigureAwait(false);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(paths.DatabaseFile))!);
-        File.Copy(databaseFile, paths.DatabaseFile, overwrite: true);
-        KeyFile.Write(paths.KeyFile, envelope);
-        key.Load(dek);
-        logger.LogInformation("Database installed from a backup (key protection: {Method})", protector.Method);
+        var suffix = ".before-restore-" + Stamp();
+        var staged = paths.DatabaseFile + ".restore.tmp";
+        File.Copy(databaseFile, staged, overwrite: true);
+
+        var previous = key.IsLoaded ? key.Copy() : null;
+        var moved = new List<(string Live, string Aside)>();
+        var keyAside = paths.KeyFile + suffix;
+        var hadKey = File.Exists(paths.KeyFile);
+        var placed = false;
+        var keyWritten = false;
+        try
+        {
+            key.Clear();
+            SqliteConnection.ClearAllPools();
+            if (hadKey)
+            {
+                File.Copy(paths.KeyFile, keyAside, overwrite: true);
+            }
+
+            moved.AddRange(MoveDatabaseAside(suffix));
+            File.Move(staged, paths.DatabaseFile);
+            placed = true;
+            KeyFile.Write(paths.KeyFile, envelope);
+            keyWritten = true;
+            key.Load(dek);
+            logger.LogInformation("Database replaced from a backup (key protection: {Method}); the previous one is kept as {Aside}", protector.Method,
+                moved.Count > 0 ? Path.GetFileName(moved[0].Aside) : "(none)");
+            return moved.Count > 0 ? Path.GetFileName(moved[0].Aside) : string.Empty;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Replacing the database failed ({Type}); putting the previous database and key back", ex.GetType().Name);
+            RollBack(moved, placed, keyWritten, hadKey ? keyAside : null, previous);
+            throw;
+        }
+        finally
+        {
+            if (previous is not null)
+            {
+                CryptographicOperations.ZeroMemory(previous);
+            }
+
+            if (File.Exists(staged))
+            {
+                TryDelete(staged);
+            }
+        }
     }
 
     /// <summary>Forgets the key in memory (the database is locked again).</summary>
     public void Lock() => key.Clear();
+
+    private static string Stamp() => DateTime.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Moves the database and its -wal / -shm files to the same name + <paramref name="suffix"/>; returns what was moved.</summary>
+    private List<(string Live, string Aside)> MoveDatabaseAside(string suffix)
+    {
+        var moved = new List<(string Live, string Aside)>();
+        foreach (var part in DatabaseParts)
+        {
+            var live = paths.DatabaseFile + part;
+            if (File.Exists(live))
+            {
+                var aside = paths.DatabaseFile + suffix + part;
+                File.Move(live, aside);
+                moved.Add((live, aside));
+            }
+        }
+
+        return moved;
+    }
+
+    private void DeleteDatabaseFiles()
+    {
+        foreach (var part in DatabaseParts)
+        {
+            if (File.Exists(paths.DatabaseFile + part))
+            {
+                TryDelete(paths.DatabaseFile + part);
+            }
+        }
+    }
+
+    private void RollBack(List<(string Live, string Aside)> moved, bool placed, bool keyWritten, string? keyAside, byte[]? previous)
+    {
+        // Every step is tried and logged on its own: one failing step must not keep the others from putting the user's data back.
+        key.Clear();
+        SqliteConnection.ClearAllPools();
+        if (placed)
+        {
+            DeleteDatabaseFiles();
+        }
+
+        foreach (var (live, aside) in Enumerable.Reverse(moved))
+        {
+            try
+            {
+                File.Move(aside, live, overwrite: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                logger.LogCritical(ex, "Could not put {File} back; it is still at {Aside}", Path.GetFileName(live), Path.GetFileName(aside));
+            }
+        }
+
+        var keyBack = true;
+        if (keyWritten)
+        {
+            try
+            {
+                if (keyAside is not null)
+                {
+                    File.Copy(keyAside, paths.KeyFile, overwrite: true);
+                }
+                else
+                {
+                    File.Delete(paths.KeyFile);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                keyBack = false;
+                logger.LogCritical(ex, "Could not put the previous key file back; it is still at {Aside}", keyAside is null ? "(none)" : Path.GetFileName(keyAside));
+            }
+        }
+
+        if (keyBack && keyAside is not null && File.Exists(keyAside))
+        {
+            // The live key file is the previous one again; its spare copy is not needed.
+            TryDelete(keyAside);
+        }
+
+        if (previous is not null)
+        {
+            key.Load(previous);
+        }
+    }
+
+    private void TryDelete(string file)
+    {
+        try
+        {
+            File.Delete(file);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(ex, "Could not delete {File}", Path.GetFileName(file));
+        }
+    }
 }

@@ -5,7 +5,10 @@ using Shouldly;
 using TMPublisher.Core.Accounts;
 using TMPublisher.Core.Posts;
 using TMPublisher.Storage.Backup;
+using Microsoft.EntityFrameworkCore;
 using TMPublisher.Storage.Crypto;
+using TMPublisher.Storage.Database;
+using TMPublisher.Storage.Keys;
 using TMPublisher.Storage.Stores;
 
 namespace TMPublisher.Tests.Storage;
@@ -45,6 +48,50 @@ public sealed class BackupTests
         // The restored key is now sealed with the new computer's protector.
         target.Vault.Lock();
         await target.Vault.OpenAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task TheDatabaseKeptAsideByARestoreCanStillBeOpened()
+    {
+        using var source = await StorageHarness.CreatedAsync();
+        var file = await BackupWithDataAsync(source);
+
+        // Another install with its own data and its own key: the backup brings a different key.
+        using var target = await StorageHarness.CreatedAsync();
+        await new AccountStore(target.Factory).SaveAsync(new Account { Platform = "bluesky", DisplayName = "Before restore" }, CancellationToken.None);
+        await Service(target).RestoreAsync(file, Password, target.Protector, CancellationToken.None);
+        (await new AccountStore(target.Factory).ListAsync(CancellationToken.None)).Single().DisplayName.ShouldBe("Backup me");
+
+        var folder = Path.GetDirectoryName(target.Paths.DatabaseFile)!;
+        var asideDb = Directory.GetFiles(folder, "publisher.db.before-restore-*").Single(f => !f.EndsWith("-wal", StringComparison.Ordinal) && !f.EndsWith("-shm", StringComparison.Ordinal));
+        var asideKey = target.Paths.KeyFile + asideDb[(target.Paths.DatabaseFile.Length)..];
+        File.Exists(asideKey).ShouldBeTrue();
+        var envelope = KeyFile.Read(asideKey)!;
+        var oldKey = await target.Protector.UnprotectAsync(envelope, CancellationToken.None);
+        await using var db = new PublisherDbContext(PublisherDbContextFactory.Options(PublisherDbContextFactory.ConnectionString(asideDb, Convert.ToHexString(oldKey))));
+        (await db.Accounts.SingleAsync(TestContext.Current.CancellationToken)).DisplayName.ShouldBe("Before restore");
+    }
+
+    [Fact]
+    public async Task AFailedReplaceAfterTheMovePutsTheOldDatabaseAndKeyBack()
+    {
+        using var source = await StorageHarness.CreatedAsync();
+        var file = await BackupWithDataAsync(source);
+        using var target = await StorageHarness.CreatedAsync();
+        await new AccountStore(target.Factory).SaveAsync(new Account { Platform = "bluesky", DisplayName = "Mine" }, CancellationToken.None);
+        var keyBefore = await File.ReadAllTextAsync(target.Paths.KeyFile, TestContext.Current.CancellationToken);
+
+        // The key file cannot be written (a folder sits where its temporary file goes): the step after the database was moved fails.
+        Directory.CreateDirectory(target.Paths.KeyFile + ".tmp");
+        await Should.ThrowAsync<Exception>(() => Service(target).RestoreAsync(file, Password, target.Protector, CancellationToken.None));
+        Directory.Delete(target.Paths.KeyFile + ".tmp");
+
+        target.Vault.State.ShouldBe(VaultState.Open);
+        (await new AccountStore(target.Factory).ListAsync(CancellationToken.None)).Single().DisplayName.ShouldBe("Mine");
+        (await File.ReadAllTextAsync(target.Paths.KeyFile, TestContext.Current.CancellationToken)).ShouldBe(keyBefore);
+        target.Vault.Lock();
+        await target.Vault.OpenAsync(CancellationToken.None);
+        (await new AccountStore(target.Factory).ListAsync(CancellationToken.None)).Single().DisplayName.ShouldBe("Mine");
     }
 
     [Fact]

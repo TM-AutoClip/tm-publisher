@@ -66,8 +66,9 @@ public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault,
     }
 
     /// <summary>
-    /// Restores a backup into this computer's data folder (the database must be closed; a current database is moved aside, never deleted).
-    /// The key is sealed again with <paramref name="protector"/> (this computer's keyring or a master password).
+    /// Restores a backup into this computer's data folder. The current database and its key file are kept aside, never deleted, and are
+    /// put back when the restore fails (<see cref="Vault.ReplaceAsync"/>). The key is sealed again with <paramref name="protector"/> (this
+    /// computer's keyring or a master password).
     /// <see cref="SealedBoxException"/> for a wrong password or a damaged file.
     /// </summary>
     public async Task<RestoreReport> RestoreAsync(string source, string password, IKeyProtector protector, CancellationToken cancellationToken)
@@ -77,6 +78,7 @@ public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault,
         var sealedData = await File.ReadAllBytesAsync(source, cancellationToken).ConfigureAwait(false);
         var plain = SealedBox.Open(Magic, password, sealedData);
         var copy = TemporaryFile();
+        var dek = Array.Empty<byte>();
         try
         {
             if (plain.Length < 33 || plain[0] != 32)
@@ -84,24 +86,15 @@ public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault,
                 throw new SealedBoxException("The backup content is damaged.");
             }
 
-            var dek = plain.AsSpan(1, 32).ToArray();
+            dek = plain.AsSpan(1, 32).ToArray();
             await File.WriteAllBytesAsync(copy, plain.AsMemory(33).ToArray(), cancellationToken).ConfigureAwait(false);
             await VerifyAsync(copy, dek, cancellationToken).ConfigureAwait(false);
-
-            vault.Lock();
-            if (File.Exists(paths.DatabaseFile))
-            {
-                var aside = paths.DatabaseFile + ".before-restore-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture);
-                File.Move(paths.DatabaseFile, aside);
-                logger.LogInformation("The current database was moved aside before the restore");
-            }
-
-            await vault.InstallAsync(copy, dek, protector, cancellationToken).ConfigureAwait(false);
-            CryptographicOperations.ZeroMemory(dek);
+            await vault.ReplaceAsync(copy, dek, protector, cancellationToken).ConfigureAwait(false);
             return await ReportAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
+            CryptographicOperations.ZeroMemory(dek);
             CryptographicOperations.ZeroMemory(plain);
             Delete(copy);
         }

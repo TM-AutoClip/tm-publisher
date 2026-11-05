@@ -30,6 +30,36 @@ public sealed class EncryptionTests
     }
 
     [Fact]
+    public async Task AMissingDatabaseIsAnErrorNotANewEmptyOne()
+    {
+        using var h = await StorageHarness.CreatedAsync();
+        h.Vault.Lock();
+        SqliteConnection.ClearAllPools();
+        File.Move(h.Paths.DatabaseFile, h.Paths.DatabaseFile + ".elsewhere");
+
+        var error = await Should.ThrowAsync<InvalidOperationException>(() => h.Vault.OpenAsync(CancellationToken.None));
+        error.Message.ShouldContain("missing");
+        File.Exists(h.Paths.DatabaseFile).ShouldBeFalse();
+        h.Vault.State.ShouldBe(VaultState.Locked);
+    }
+
+    [Fact]
+    public async Task AFailedCreateCanBeTriedAgain()
+    {
+        using var h = new StorageHarness();
+
+        // The database cannot be made (a folder sits where its file goes): the vault must not stay "open" without a key file.
+        Directory.CreateDirectory(h.Paths.DatabaseFile);
+        await Should.ThrowAsync<Exception>(() => h.Vault.CreateAsync(h.Protector, CancellationToken.None));
+        h.Vault.State.ShouldBe(VaultState.NotCreated);
+        File.Exists(h.Paths.KeyFile).ShouldBeFalse();
+
+        Directory.Delete(h.Paths.DatabaseFile);
+        await h.Vault.CreateAsync(h.Protector, CancellationToken.None);
+        h.Vault.State.ShouldBe(VaultState.Open);
+    }
+
+    [Fact]
     public async Task VaultOpensAgainWithTheRightPasswordOnly()
     {
         using var h = await StorageHarness.CreatedAsync();
