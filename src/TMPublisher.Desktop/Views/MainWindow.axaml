@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+        xmlns:l="using:TMPublisher.Desktop.Localization"
+        x:Class="TMPublisher.Desktop.Views.MainWindow"
+        x:DataType="vm:ShellViewModel"
+        Title="TM Publisher"
+        Width="1180" Height="760" MinWidth="880" MinHeight="560"
+        WindowStartupLocation="CenterScreen">
+  <Grid ColumnDefinitions="220,*">
+    <Border Background="{DynamicResource tm-sidebar-bg}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="18,18,18,22">
+          <Image Source="avares://TMPublisher/Assets/app-256.png" Width="30" Height="30" />
+          <TextBlock Text="TM Publisher" Classes="h2" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Classes="small" TextWrapping="Wrap" Margin="14" />
+        <ItemsControl ItemsSource="{Binding Items}" Margin="8,0">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:NavItemViewModel">
+              <Button Classes="nav" Classes.selected="{Binding IsSelected}" Command="{Binding OpenCommand}" Margin="0,2">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Text="{Binding Glyph}" Width="20" TextAlignment="Center" />
+                  <TextBlock Text="{Binding Title}" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </DockPanel>
+    </Border>
+    <ContentControl Grid.Column="1" Content="{Binding Current}" />
+  </Grid>
+</Window>

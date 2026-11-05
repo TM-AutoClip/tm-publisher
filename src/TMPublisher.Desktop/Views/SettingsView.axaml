@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+             xmlns:l="using:TMPublisher.Desktop.Localization"
+             x:Class="TMPublisher.Desktop.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="28" Spacing="16" MaxWidth="760" HorizontalAlignment="Left">
+      <TextBlock Text="{l:Tr nav.settings}" Classes="h1" />
+      <TextBlock Text="{Binding Status}" Classes="ok" />
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{l:Tr settings.general}" Classes="h2" />
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="{l:Tr settings.language}" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" MinWidth="180">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:LanguageOption">
+                  <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+          <CheckBox IsChecked="{Binding NotificationsEnabled}" Content="{l:Tr settings.notifications}" />
+          <StackPanel Orientation="Horizontal" Spacing="10" IsEnabled="{Binding NotificationsEnabled}">
+            <TextBlock Text="{l:Tr settings.notification_seconds}" VerticalAlignment="Center" />
+            <NumericUpDown Value="{Binding NotificationSeconds}" Minimum="3" Maximum="3600" Increment="5" FormatString="0" Width="140" />
+          </StackPanel>
+          <CheckBox IsChecked="{Binding StartWithSystem}" Content="{l:Tr settings.autostart}" />
+          <CheckBox IsChecked="{Binding TikTokDraftByDefault}" Content="{l:Tr settings.tiktok_draft}" />
+          <Button Classes="accent" Content="{l:Tr common.save}" Command="{Binding SaveCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{l:Tr settings.protection}" Classes="h2" />
+          <TextBlock Text="{Binding Protection}" Classes="muted" TextWrapping="Wrap" />
+          <TextBlock Text="{l:Tr password.forgotten_warning}" Classes="warning" />
+          <TextBox Classes="secret" Text="{Binding NewMasterPassword}" PlaceholderText="{l:Tr password.master}" />
+          <TextBox Classes="secret" Text="{Binding NewMasterPasswordRepeat}" PlaceholderText="{l:Tr password.repeat}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{l:Tr settings.set_master_password}" Command="{Binding SetMasterPasswordCommand}" />
+            <Button Content="{l:Tr settings.use_keyring}" Command="{Binding UseKeyringCommand}" IsVisible="{Binding KeyringAvailable}" IsEnabled="{Binding UsesMasterPassword}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{l:Tr settings.backup}" Classes="h2" />
+          <TextBlock Text="{l:Tr backup.explain}" Classes="muted" TextWrapping="Wrap" />
+          <TextBox Classes="secret" Text="{Binding BackupPassword}" PlaceholderText="{l:Tr backup.password}" />
+          <TextBox Classes="secret" Text="{Binding BackupPasswordRepeat}" PlaceholderText="{l:Tr password.repeat}" />
+          <Button Content="{l:Tr backup.create}" Command="{Binding BackupCommand}" HorizontalAlignment="Left" />
+          <Separator />
+          <TextBlock Text="{l:Tr restore.explain}" Classes="muted" TextWrapping="Wrap" />
+          <TextBox Classes="secret" Text="{Binding RestorePassword}" PlaceholderText="{l:Tr restore.password}" />
+          <Button Classes="danger" Content="{l:Tr restore.run}" Command="{Binding RestoreCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{l:Tr settings.about}" Classes="h2" />
+          <TextBlock Text="{Binding Version, StringFormat='TM Publisher {0}'}" />
+          <TextBlock Text="{Binding DataFolder}" Classes="small" TextWrapping="Wrap" />
+          <TextBlock Text="{l:Tr settings.license}" Classes="small" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

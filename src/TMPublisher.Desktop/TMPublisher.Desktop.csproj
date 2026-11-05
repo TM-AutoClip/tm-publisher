@@ -5,6 +5,7 @@
     <AssemblyName>TMPublisher</AssemblyName>
     <RootNamespace>TMPublisher.Desktop</RootNamespace>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
@@ -19,6 +20,13 @@
     <ProjectReference Include="..\TMPublisher.Platforms\TMPublisher.Platforms.csproj" />
     <ProjectReference Include="..\TMPublisher.Storage\TMPublisher.Storage.csproj" />
     <ProjectReference Include="..\TMPublisher.Scheduling\TMPublisher.Scheduling.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Language files are embedded (WithCulture=false: the .en/.tr suffix is not a satellite culture). -->
+    <EmbeddedResource Include="Lang\*.json" LogicalName="TMPublisher.Lang.%(Filename)%(Extension)" WithCulture="false" />
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+    <AvaloniaResource Include="Assets\app.ico;Assets\app-256.png" />
+    <None Include="Assets\Licenses\*.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="licenses" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="TMPublisher.Tests" />

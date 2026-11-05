@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+        xmlns:l="using:TMPublisher.Desktop.Localization"
+        x:Class="TMPublisher.Desktop.Views.UnlockWindow"
+        x:DataType="vm:UnlockViewModel"
+        Title="TM Publisher"
+        Width="480" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterScreen">
+  <StackPanel Margin="28" Spacing="14">
+    <StackPanel Orientation="Horizontal" Spacing="12">
+      <Image Source="avares://TMPublisher/Assets/app-256.png" Width="36" Height="36" />
+      <TextBlock Text="{l:Tr unlock.title}" Classes="h1" VerticalAlignment="Center" />
+    </StackPanel>
+    <TextBox Classes="secret" Text="{Binding Password}" PlaceholderText="{l:Tr password.master}" IsVisible="{Binding NeedsPassword}" />
+    <TextBlock Text="{Binding Error}" Classes="error" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Classes="accent" Content="{l:Tr unlock.open}" Command="{Binding UnlockCommand}" IsEnabled="{Binding !Busy}" IsDefault="True" />
+      <Button Content="{l:Tr unlock.restore}" Command="{Binding RestoreCommand}" />
+    </StackPanel>
+    <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}" />
+  </StackPanel>
+</Window>

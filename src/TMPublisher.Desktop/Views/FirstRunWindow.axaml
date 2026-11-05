@@ -1,0 +1,87 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+        xmlns:l="using:TMPublisher.Desktop.Localization"
+        x:Class="TMPublisher.Desktop.Views.FirstRunWindow"
+        x:DataType="vm:FirstRunViewModel"
+        Title="TM Publisher"
+        Width="640" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterScreen">
+  <StackPanel Margin="32" Spacing="16">
+    <StackPanel Orientation="Horizontal" Spacing="12">
+      <Image Source="avares://TMPublisher/Assets/app-256.png" Width="40" Height="40" />
+      <TextBlock Text="{l:Tr firstrun.title}" Classes="h1" VerticalAlignment="Center" />
+    </StackPanel>
+
+    <!-- Language -->
+    <StackPanel Spacing="12" IsVisible="{Binding IsLanguageStep}">
+      <TextBlock Text="Choose your language · Dilinizi seçin" Classes="h2" />
+      <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" MinWidth="240">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:LanguageOption">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <Button Classes="accent" Content="Continue · Devam" Command="{Binding ChooseLanguageCommand}" />
+    </StackPanel>
+
+    <!-- Choice -->
+    <StackPanel Spacing="12" IsVisible="{Binding IsChoiceStep}">
+      <TextBlock Text="{l:Tr firstrun.intro}" TextWrapping="Wrap" Classes="muted" />
+      <Button Classes="accent" HorizontalAlignment="Stretch" Command="{Binding ChooseNewCommand}">
+        <StackPanel>
+          <TextBlock Text="{l:Tr firstrun.new}" FontWeight="SemiBold" />
+          <TextBlock Text="{l:Tr firstrun.new.hint}" TextWrapping="Wrap" FontSize="12" />
+        </StackPanel>
+      </Button>
+      <Button HorizontalAlignment="Stretch" Command="{Binding ChooseRestoreCommand}">
+        <StackPanel>
+          <TextBlock Text="{l:Tr firstrun.restore}" FontWeight="SemiBold" />
+          <TextBlock Text="{l:Tr firstrun.restore.hint}" TextWrapping="Wrap" FontSize="12" />
+        </StackPanel>
+      </Button>
+    </StackPanel>
+
+    <!-- New / Restore shared protection -->
+    <StackPanel Spacing="10" IsVisible="{Binding IsRestoreStep}">
+      <TextBlock Text="{l:Tr firstrun.restore}" Classes="h2" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBox Text="{Binding BackupFile}" PlaceholderText="{l:Tr restore.file}" />
+        <Button Grid.Column="1" Content="{l:Tr common.browse}" Command="{Binding BrowseBackupCommand}" />
+      </Grid>
+      <TextBox Classes="secret" Text="{Binding BackupPassword}" PlaceholderText="{l:Tr restore.password}" />
+    </StackPanel>
+
+    <StackPanel Spacing="10" IsVisible="{Binding IsNewStep}">
+      <TextBlock Text="{l:Tr firstrun.new}" Classes="h2" />
+      <TextBlock Text="{l:Tr firstrun.protection.keyring}" TextWrapping="Wrap" Classes="muted" IsVisible="{Binding KeyringAvailable}" />
+      <TextBlock Text="{l:Tr firstrun.protection.nokeyring}" Classes="warning" IsVisible="{Binding !KeyringAvailable}" />
+    </StackPanel>
+
+    <StackPanel Spacing="10">
+      <StackPanel.IsVisible>
+        <MultiBinding Converter="{x:Static BoolConverters.Or}">
+          <Binding Path="IsNewStep" />
+          <Binding Path="IsRestoreStep" />
+        </MultiBinding>
+      </StackPanel.IsVisible>
+      <CheckBox IsChecked="{Binding UseMasterPassword}" IsVisible="{Binding KeyringAvailable}" Content="{l:Tr firstrun.use_master_password}" />
+      <StackPanel Spacing="8" IsVisible="{Binding NeedsMasterPassword}">
+        <TextBlock Text="{l:Tr password.forgotten_warning}" Classes="warning" />
+        <TextBox Classes="secret" Text="{Binding MasterPassword}" PlaceholderText="{l:Tr password.master}" />
+        <TextBox Classes="secret" Text="{Binding MasterPasswordRepeat}" PlaceholderText="{l:Tr password.repeat}" />
+        <ProgressBar Minimum="0" Maximum="4" Value="{Binding PasswordStrength}" Height="4" />
+      </StackPanel>
+      <CheckBox IsChecked="{Binding StartWithSystem}" Content="{l:Tr settings.autostart}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="{l:Tr common.back}" Command="{Binding BackCommand}" />
+        <Button Classes="accent" Content="{l:Tr firstrun.create}" Command="{Binding CreateCommand}" IsVisible="{Binding IsNewStep}" IsEnabled="{Binding !Busy}" />
+        <Button Classes="accent" Content="{l:Tr firstrun.do_restore}" Command="{Binding RestoreCommand}" IsVisible="{Binding IsRestoreStep}" IsEnabled="{Binding !Busy}" />
+      </StackPanel>
+    </StackPanel>
+
+    <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}" />
+    <TextBlock Text="{Binding Message}" Classes="error" />
+  </StackPanel>
+</Window>
