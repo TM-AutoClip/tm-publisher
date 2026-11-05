@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Paths;
 using TMPublisher.Storage.Database;
@@ -51,9 +50,9 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
             key.Load(dek);
             try
             {
-                await using (var db = new PublisherDbContextFactory(paths, key).CreateDbContext())
+                await using (var connection = await new ConnectionFactory(paths, key).OpenAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    await db.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+                    await Schema.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
                 }
 
                 KeyFile.Write(paths.KeyFile, envelope);
@@ -101,26 +100,47 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
         var dek = await protector.UnprotectAsync(envelope, cancellationToken).ConfigureAwait(false);
         try
         {
-            key.Load(dek);
+            await LoadAndVerifyAsync(dek, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             CryptographicOperations.ZeroMemory(dek);
         }
 
+        logger.LogInformation("Encrypted database opened (key protection: {Method})", envelope.Method);
+    }
+
+    /// <summary>
+    /// Opens the database with a key the window handed over (the background scheduler cannot ask for a master password). The key is checked
+    /// by reading the database; a wrong key leaves the vault locked.
+    /// </summary>
+    public async Task OpenWithKeyAsync(byte[] dek, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dek);
+        if (!File.Exists(paths.DatabaseFile))
+        {
+            logger.LogError("A key was handed over but the database file {File} is missing; nothing is created", Path.GetFileName(paths.DatabaseFile));
+            throw new InvalidOperationException("The database file is missing; no new empty database was made.");
+        }
+
+        await LoadAndVerifyAsync(dek, cancellationToken).ConfigureAwait(false);
+        logger.LogInformation("Encrypted database opened with the key handed over by the window");
+    }
+
+    private async Task LoadAndVerifyAsync(byte[] dek, CancellationToken cancellationToken)
+    {
+        key.Load(dek);
         try
         {
-            await using var db = new PublisherDbContextFactory(paths, key).CreateDbContext();
-            await db.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
-            await db.Settings.CountAsync(cancellationToken).ConfigureAwait(false);
+            await using var connection = await new ConnectionFactory(paths, key).OpenAsync(cancellationToken).ConfigureAwait(false);
+            await Schema.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
+            await Schema.VerifyAsync(connection, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
             key.Clear();
             throw;
         }
-
-        logger.LogInformation("Encrypted database opened (key protection: {Method})", envelope.Method);
     }
 
     /// <summary>Seals the open key with another protector (for example "lock with a master password") and forgets the old seal.</summary>

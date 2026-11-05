@@ -5,7 +5,6 @@ using Shouldly;
 using TMPublisher.Core.Accounts;
 using TMPublisher.Core.Posts;
 using TMPublisher.Storage.Backup;
-using Microsoft.EntityFrameworkCore;
 using TMPublisher.Storage.Crypto;
 using TMPublisher.Storage.Database;
 using TMPublisher.Storage.Keys;
@@ -17,7 +16,8 @@ public sealed class BackupTests
 {
     private const string Password = "a long backup password";
 
-    private static BackupService Service(StorageHarness h) => new(h.Paths, h.Key, h.Vault, KdfParameters.Fast, NullLogger<BackupService>.Instance);
+    private static BackupService Service(StorageHarness h) =>
+        new(h.Paths, h.Key, h.Vault, KdfParameters.Fast, new AccountStore(h.Factory), new PostStore(h.Factory, TimeProvider.System), NullLogger<BackupService>.Instance);
 
     private static async Task<string> BackupWithDataAsync(StorageHarness h)
     {
@@ -68,8 +68,10 @@ public sealed class BackupTests
         File.Exists(asideKey).ShouldBeTrue();
         var envelope = KeyFile.Read(asideKey)!;
         var oldKey = await target.Protector.UnprotectAsync(envelope, CancellationToken.None);
-        await using var db = new PublisherDbContext(PublisherDbContextFactory.Options(PublisherDbContextFactory.ConnectionString(asideDb, Convert.ToHexString(oldKey))));
-        (await db.Accounts.SingleAsync(TestContext.Current.CancellationToken)).DisplayName.ShouldBe("Before restore");
+        await using var db = await ConnectionFactory.OpenFileAsync(asideDb, Convert.ToHexString(oldKey), TestContext.Current.CancellationToken);
+        await using var command = db.CreateCommand();
+        command.CommandText = "SELECT \"DisplayName\" FROM \"accounts\"";
+        (await command.ExecuteScalarAsync(TestContext.Current.CancellationToken)).ShouldBe("Before restore");
     }
 
     [Fact]
@@ -133,8 +135,8 @@ public sealed class BackupTests
         using var h = await StorageHarness.CreatedAsync();
         var passphrase = h.Key.Passphrase();
         var copy = Path.Combine(h.Paths.DataDirectory, "copy.db");
-        using (var source = new SqliteConnection(TMPublisher.Storage.Database.PublisherDbContextFactory.ConnectionString(h.Paths.DatabaseFile, passphrase)))
-        using (var destination = new SqliteConnection(TMPublisher.Storage.Database.PublisherDbContextFactory.ConnectionString(copy, passphrase)))
+        using (var source = new SqliteConnection(TMPublisher.Storage.Database.ConnectionFactory.ConnectionString(h.Paths.DatabaseFile, passphrase)))
+        using (var destination = new SqliteConnection(TMPublisher.Storage.Database.ConnectionFactory.ConnectionString(copy, passphrase)))
         {
             source.Open();
             destination.Open();

@@ -13,7 +13,7 @@ internal sealed class StorageHarness : IDisposable
         Passwords = new FixedPasswords(password);
         Protector = new PasswordKeyProtector(Passwords, KdfParameters.Fast);
         Vault = new Vault(Paths, Key, [Protector], NullLogger<Vault>.Instance);
-        Factory = new PublisherDbContextFactory(Paths, Key);
+        Factory = new ConnectionFactory(Paths, Key);
     }
 
     public TempPaths Paths { get; } = new();
@@ -26,7 +26,7 @@ internal sealed class StorageHarness : IDisposable
 
     public Vault Vault { get; }
 
-    public PublisherDbContextFactory Factory { get; }
+    public ConnectionFactory Factory { get; }
 
     public static async Task<StorageHarness> CreatedAsync()
     {

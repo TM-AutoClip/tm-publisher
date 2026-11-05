@@ -1,6 +1,5 @@
 using System.Text;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using TMPublisher.Core.Accounts;
 using TMPublisher.Storage.Crypto;
@@ -24,9 +23,11 @@ public sealed class EncryptionTests
         Encoding.UTF8.GetString(bytes).ShouldNotContain("secret-name-123");
         Encoding.UTF8.GetString(bytes).ShouldNotContain("accounts");
 
-        await using var other = new PublisherDbContext(PublisherDbContextFactory.Options(
-            PublisherDbContextFactory.ConnectionString(h.Paths.DatabaseFile, Convert.ToHexString(new byte[32]))));
-        await Should.ThrowAsync<SqliteException>(() => other.Accounts.CountAsync(TestContext.Current.CancellationToken));
+        await Should.ThrowAsync<SqliteException>(async () =>
+        {
+            await using var other = await ConnectionFactory.OpenFileAsync(h.Paths.DatabaseFile, Convert.ToHexString(new byte[32]), TestContext.Current.CancellationToken);
+            await Schema.VerifyAsync(other, TestContext.Current.CancellationToken);
+        });
     }
 
     [Fact]

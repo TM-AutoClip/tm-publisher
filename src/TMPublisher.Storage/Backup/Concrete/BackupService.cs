@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using TMPublisher.Core.Accounts;
 using TMPublisher.Core.Paths;
 using TMPublisher.Core.Posts;
 using TMPublisher.Storage.Crypto;
@@ -17,7 +17,8 @@ namespace TMPublisher.Storage.Backup;
 /// the same key, so no plain data is written to disk at any moment. Only the database is backed up, not the media files.
 /// A forgotten backup password cannot be recovered.
 /// </summary>
-public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault, KdfParameters kdf, ILogger<BackupService> logger)
+public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault, KdfParameters kdf, IAccountStore accountStore, IPostStore postStore,
+    ILogger<BackupService> logger)
 {
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("TMPBAK01");
 
@@ -38,8 +39,8 @@ public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault,
         try
         {
             var passphrase = key.Passphrase();
-            using (var source = new SqliteConnection(PublisherDbContextFactory.ConnectionString(paths.DatabaseFile, passphrase)))
-            using (var destination = new SqliteConnection(PublisherDbContextFactory.ConnectionString(copy, passphrase)))
+            using (var source = new SqliteConnection(ConnectionFactory.ConnectionString(paths.DatabaseFile, passphrase)))
+            using (var destination = new SqliteConnection(ConnectionFactory.ConnectionString(copy, passphrase)))
             {
                 source.Open();
                 destination.Open();
@@ -104,9 +105,8 @@ public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault,
     {
         try
         {
-            await using var db = new PublisherDbContext(PublisherDbContextFactory.Options(
-                PublisherDbContextFactory.ConnectionString(file, Convert.ToHexString(dek))));
-            await db.Settings.CountAsync(cancellationToken).ConfigureAwait(false);
+            await using var connection = await ConnectionFactory.OpenFileAsync(file, Convert.ToHexString(dek), cancellationToken).ConfigureAwait(false);
+            await Schema.VerifyAsync(connection, cancellationToken).ConfigureAwait(false);
         }
         catch (SqliteException ex)
         {
@@ -116,14 +116,13 @@ public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault,
 
     private async Task<RestoreReport> ReportAsync(CancellationToken cancellationToken)
     {
-        await using var db = new PublisherDbContextFactory(paths, key).CreateDbContext();
-        var accounts = await db.Accounts.CountAsync(cancellationToken).ConfigureAwait(false);
-        var posts = await db.Posts.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+        var accounts = await accountStore.ListAsync(cancellationToken).ConfigureAwait(false);
+        var posts = await postStore.ListByStatusAsync(Enum.GetValues<PostStatus>(), cancellationToken).ConfigureAwait(false);
         var open = new[] { PostStatus.Draft, PostStatus.Scheduled, PostStatus.Missed, PostStatus.Stopped, PostStatus.Blocked };
         var missing = posts.Where(p => open.Contains(p.Status)).SelectMany(p => p.Media).Select(m => m.Path)
             .Where(p => !File.Exists(p)).Distinct(StringComparer.Ordinal).ToList();
-        logger.LogInformation("Restore finished: {Accounts} accounts, {Posts} posts, {Missing} missing media files", accounts, posts.Count, missing.Count);
-        return new RestoreReport(accounts, posts.Count, missing);
+        logger.LogInformation("Restore finished: {Accounts} accounts, {Posts} posts, {Missing} missing media files", accounts.Count, posts.Count, missing.Count);
+        return new RestoreReport(accounts.Count, posts.Count, missing);
     }
 
     private string TemporaryFile() => Path.Combine(paths.DataDirectory, "backup-" + Guid.NewGuid().ToString("N") + ".tmp");

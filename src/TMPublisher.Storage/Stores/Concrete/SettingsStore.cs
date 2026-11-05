@@ -1,21 +1,22 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using TMPublisher.Core.Settings;
 using TMPublisher.Storage.Database;
 
 namespace TMPublisher.Storage.Stores;
 
 /// <summary><see cref="ISettingsStore"/>: one JSON document.</summary>
-public sealed class SettingsStore(IDbContextFactory<PublisherDbContext> factory) : ISettingsStore
+public sealed class SettingsStore(IConnectionFactory connections) : ISettingsStore
 {
     private const string Key = "app";
 
     /// <inheritdoc />
     public async Task<AppSettings> GetAsync(CancellationToken cancellationToken)
     {
-        await using var db = await factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        var row = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == Key, cancellationToken).ConfigureAwait(false);
-        return row is null ? new AppSettings() : JsonSerializer.Deserialize(row.Value, StorageJsonContext.Default.AppSettings) ?? new AppSettings();
+        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = Columns.Command(connection, "SELECT \"Value\" FROM \"settings\" WHERE \"Key\" = $key", null, ("$key", Key));
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string value
+            ? JsonSerializer.Deserialize(value, StorageJsonContext.Default.AppSettings) ?? new AppSettings()
+            : new AppSettings();
     }
 
     /// <inheritdoc />
@@ -23,17 +24,10 @@ public sealed class SettingsStore(IDbContextFactory<PublisherDbContext> factory)
     {
         ArgumentNullException.ThrowIfNull(settings);
         var value = JsonSerializer.Serialize(settings, StorageJsonContext.Default.AppSettings);
-        await using var db = await factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == Key, cancellationToken).ConfigureAwait(false);
-        if (row is null)
-        {
-            db.Settings.Add(new SettingRow { Key = Key, Value = value });
-        }
-        else
-        {
-            row.Value = value;
-        }
-
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = Columns.Command(connection,
+            "INSERT INTO \"settings\" (\"Key\", \"Value\") VALUES ($key, $value) ON CONFLICT(\"Key\") DO UPDATE SET \"Value\" = excluded.\"Value\"",
+            null, ("$key", Key), ("$value", value));
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 }

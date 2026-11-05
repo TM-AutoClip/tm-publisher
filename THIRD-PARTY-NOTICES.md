@@ -14,18 +14,19 @@ The font license texts are embedded in the program and shipped as files in the L
 
 ## Libraries bundled into the program
 
-The release files are self-contained: they carry the .NET runtime and these libraries. Each keeps its own license.
+The release files are self-contained: they carry the .NET runtime and these libraries (the background scheduler only the ones it needs,
+compiled to native code). Each keeps its own license.
 
 | Library | License |
 |---|---|
 | .NET runtime and Microsoft.Extensions.* | MIT |
 | Avalonia (UI) with SkiaSharp and HarfBuzzSharp | MIT |
 | CommunityToolkit.Mvvm | MIT |
-| Entity Framework Core (SQLite) | MIT |
+| Microsoft.Data.Sqlite | MIT |
 | SQLite3 Multiple Ciphers (SQLite3MC.PCLRaw.bundle) and SQLitePCLRaw | MIT |
 | SQLite | Public domain |
 | Konscious.Security.Cryptography.Argon2 | MIT |
-| System.Security.Cryptography.ProtectedData, Microsoft.Win32.SystemEvents | MIT |
+| System.Security.Cryptography.ProtectedData | MIT |
 | Tmds.DBus.Protocol | MIT |
 
 Exact versions are in `Directory.Packages.props`.
