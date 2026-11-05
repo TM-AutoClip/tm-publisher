@@ -97,7 +97,9 @@ public static class DesktopServices
         services.AddSingleton<AccountService>();
         services.AddTransient<ConnectViewModel>();
         services.AddSingleton<Func<ConnectViewModel>>(s => s.GetRequiredService<ConnectViewModel>);
-        services.AddSingleton<PageViewModelBase, ComposeViewModel>();
+        services.AddSingleton<ComposeViewModel>();
+        services.AddSingleton<PageViewModelBase>(s => s.GetRequiredService<ComposeViewModel>());
+        services.AddSingleton<PageViewModelBase, CalendarViewModel>();
         services.AddSingleton<PageViewModelBase, AttentionViewModel>();
         services.AddSingleton<PageViewModelBase, AccountsViewModel>();
         services.AddSingleton<PageViewModelBase, GroupsViewModel>();
@@ -105,6 +107,7 @@ public static class DesktopServices
         services.AddSingleton<PageViewModelBase, SettingsViewModel>();
         services.AddSingleton(new ViewLocator()
             .Register<ComposeViewModel, ComposeView>()
+            .Register<CalendarViewModel, CalendarView>()
             .Register<AttentionViewModel, AttentionView>()
             .Register<AccountsViewModel, AccountsView>()
             .Register<TagSetsViewModel, TagSetsView>()

@@ -18,6 +18,10 @@ public sealed partial class ShellViewModel : ObservableObject
         _text = text;
         _logger = logger;
         Items = new ObservableCollection<NavItemViewModel>(pages.OrderBy(p => p.Order).Select(p => new NavItemViewModel(this, p, text[p.TitleKey])));
+        foreach (var item in Items)
+        {
+            item.Page.NavigationRequested += (_, page) => _ = NavigateAsync(page);
+        }
     }
 
     /// <summary>Sidebar.</summary>

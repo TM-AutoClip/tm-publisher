@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+             xmlns:l="using:TMPublisher.Desktop.Localization"
+             xmlns:sys="using:System"
+             x:Class="TMPublisher.Desktop.Views.CalendarView"
+             x:DataType="vm:CalendarViewModel">
+  <DockPanel Margin="28">
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+        <TextBlock Text="{l:Tr nav.calendar}" Classes="h1" />
+        <TextBlock Grid.Column="1" Text="{Binding RangeTitle}" Classes="h2" VerticalAlignment="Center" Margin="16,0" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+          <Button Content="‹" Command="{Binding PreviousCommand}" />
+          <Button Content="{l:Tr calendar.today}" Command="{Binding TodayCommand}" />
+          <Button Content="›" Command="{Binding NextCommand}" />
+          <Button Content="{l:Tr calendar.month}" Command="{Binding ShowMonthCommand}" Classes.accent="{Binding !IsWeek}" />
+          <Button Content="{l:Tr calendar.week}" Command="{Binding ShowWeekCommand}" Classes.accent="{Binding IsWeek}" />
+        </StackPanel>
+      </Grid>
+      <TextBlock Text="{l:Tr calendar.hint}" Classes="small" />
+      <TextBlock Text="{Binding Status}" Classes="muted" TextWrapping="Wrap" />
+    </StackPanel>
+    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding WeekdayNames}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <UniformGrid Columns="7" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="sys:String">
+          <TextBlock Text="{Binding}" Classes="small" Margin="6,0,0,4" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <ItemsControl ItemsSource="{Binding Days}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <UniformGrid Columns="7" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:CalendarDayViewModel">
+          <Border Classes="card" Margin="2" Padding="6" DragDrop.AllowDrop="True" Opacity="{Binding InRange, Converter={x:Static vm:Converters.SupportedOpacity}}"
+                  Classes.today="{Binding IsToday}" Loaded="OnDayLoaded">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Top" Text="{Binding Number}" Classes="small" FontWeight="SemiBold" />
+              <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Items}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CalendarItemViewModel">
+                      <Border Background="{Binding Color}" CornerRadius="6" Padding="5,3" Margin="0,2,0,0" Cursor="Hand"
+                              PointerPressed="OnItemPressed" DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding State}">
+                        <StackPanel>
+                          <TextBlock Text="{Binding Time}" Foreground="White" FontSize="11" FontWeight="SemiBold" />
+                          <TextBlock Text="{Binding Summary}" Foreground="White" FontSize="11" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </DockPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </DockPanel>
+</UserControl>

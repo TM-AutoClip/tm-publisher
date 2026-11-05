@@ -16,6 +16,9 @@ internal sealed class DesktopHarness : IDisposable
         Services = DesktopServices.Build(Paths, s =>
         {
             s.AddSingleton(KdfParameters.Fast);
+
+            // No real network in tests: every request gets the fake handler's "no route" answer.
+            s.AddSingleton(new TMPublisher.Tests.Platforms.FakeHttp().Transport);
             overrides?.Invoke(s);
         });
     }

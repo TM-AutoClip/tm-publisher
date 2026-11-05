@@ -18,6 +18,12 @@ public abstract partial class PageViewModelBase : ObservableObject
     [ObservableProperty]
     public partial string Status { get; set; } = string.Empty;
 
+    /// <summary>Raised when the page wants another page shown (the shell opens it).</summary>
+    public event EventHandler<PageViewModelBase>? NavigationRequested;
+
     /// <summary>Called whenever the page is shown (reload data here).</summary>
     public virtual Task ActivateAsync() => Task.CompletedTask;
+
+    /// <summary>Asks the shell to show another page.</summary>
+    protected void RequestNavigation(PageViewModelBase page) => NavigationRequested?.Invoke(this, page);
 }

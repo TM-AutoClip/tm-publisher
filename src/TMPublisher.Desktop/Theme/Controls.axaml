@@ -51,6 +51,11 @@
     <Setter Property="CornerRadius" Value="{DynamicResource tm-radius-sm}" />
     <Setter Property="Padding" Value="14,7" />
   </Style>
+  <Style Selector="Border.card.today">
+    <Setter Property="BorderBrush" Value="{DynamicResource tm-accent}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+
   <Style Selector="Button.accent">
     <Setter Property="Background" Value="{DynamicResource tm-accent}" />
     <Setter Property="Foreground" Value="{DynamicResource tm-on-accent}" />
