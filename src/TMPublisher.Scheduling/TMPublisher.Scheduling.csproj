@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- The single timer, preflight checks, sequential sending, missed posts, quota ledger. Depends on Core only. -->
+  <PropertyGroup>
+    <!-- Also compiled into the native background scheduler: trimming / AOT warnings are errors here too. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\TMPublisher.Core\TMPublisher.Core.csproj" />
   </ItemGroup>

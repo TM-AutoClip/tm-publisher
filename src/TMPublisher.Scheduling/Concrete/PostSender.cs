@@ -13,7 +13,7 @@ using TMPublisher.Scheduling.Accounts;
 namespace TMPublisher.Scheduling;
 
 /// <summary>
-/// Sends one post: a check without network first (account connected, files and text within the rules, local quota), and when anything
+/// Sends one post that the scheduler has claimed (<see cref="PostScheduler"/>): a check without network first (account connected, files and text within the rules, local quota), and when anything
 /// fails nothing is sent and the post is "blocked". Then the targets go one by one in the user's order; when one fails the rest wait and
 /// the post is "stopped" (retry / skip / cancel). Every step is stored at once and logged; tokens never reach the log.
 /// </summary>
@@ -30,6 +30,12 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
     public async Task<PostStatus> SendAsync(Post post, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(post);
+        if (post.Status != PostStatus.Publishing)
+        {
+            // The only way to send is the claim (scheduled -> publishing in the database), so nothing is ever sent twice.
+            throw new InvalidOperationException($"Post {post.Id} is {post.Status}; it must be claimed (publishing) before it is sent.");
+        }
+
         var pending = post.Targets.Where(t => t.Status == TargetStatus.Pending).OrderBy(t => t.Order).ToList();
         if (pending.Count == 0 && post.Targets.Count == 0)
         {

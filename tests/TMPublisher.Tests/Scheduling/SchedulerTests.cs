@@ -5,6 +5,7 @@ using TMPublisher.Core.Posts;
 using TMPublisher.Core.Publishing;
 using TMPublisher.Core.Quotas;
 using TMPublisher.Scheduling;
+using TMPublisher.Scheduling.Accounts;
 
 namespace TMPublisher.Tests.Scheduling;
 
@@ -21,7 +22,8 @@ public sealed class SchedulerTests
         var post = await h.PostAsync(h.Clock.GetUtcNow().AddHours(1), account);
 
         await h.Scheduler.StartAsync(Ct);
-        h.Scheduler.NextWakeUtc.ShouldBe(post.ScheduledAtUtc);
+        h.Scheduler.NextPostUtc.ShouldBe(post.ScheduledAtUtc);
+        h.Scheduler.NextWakeUtc.ShouldBe(h.Clock.GetUtcNow() + SchedulerLimits.SafetyInterval);
         platform.Sent.ShouldBeEmpty();
 
         h.Clock.Advance(TimeSpan.FromHours(1));
@@ -91,7 +93,7 @@ public sealed class SchedulerTests
         using var h = await SchedulerHarness.CreateAsync(platform);
         var account = await h.AccountAsync(platform.Code, "A");
         await h.Scheduler.StartAsync(Ct);
-        h.Scheduler.NextWakeUtc.ShouldBeNull();
+        h.Scheduler.NextPostUtc.ShouldBeNull();
 
         // As after a restore: the data now holds a scheduled post and one left "publishing" when the backup was taken.
         var later = await h.PostAsync(h.Clock.GetUtcNow().AddHours(1), account);
@@ -102,19 +104,19 @@ public sealed class SchedulerTests
 
         await h.Scheduler.ReloadAsync(Ct);
 
-        h.Scheduler.NextWakeUtc.ShouldBe(later.ScheduledAtUtc);
+        h.Scheduler.NextPostUtc.ShouldBe(later.ScheduledAtUtc);
         (await h.ReloadAsync(interrupted)).Status.ShouldBe(PostStatus.Stopped);
     }
 
     [Fact]
-    public async Task LongWaitsAreCutInto24HourPieces()
+    public async Task LongWaitsAreCutIntoSafetyIntervals()
     {
         var platform = new ScriptedPlatform();
         using var h = await SchedulerHarness.CreateAsync(platform);
         var account = await h.AccountAsync(platform.Code, "A");
         await h.PostAsync(h.Clock.GetUtcNow().AddDays(3), account);
         await h.Scheduler.StartAsync(Ct);
-        h.Scheduler.NextWakeUtc.ShouldBe(h.Clock.GetUtcNow().AddHours(24));
+        h.Scheduler.NextWakeUtc.ShouldBe(h.Clock.GetUtcNow() + SchedulerLimits.SafetyInterval);
     }
 
     [Fact]
@@ -125,9 +127,10 @@ public sealed class SchedulerTests
         var account = await h.AccountAsync(platform.Code, "A");
         await h.PostAsync(h.Clock.GetUtcNow().AddHours(5), account);
         await h.Scheduler.StartAsync(Ct);
-        var earlier = await h.PostAsync(h.Clock.GetUtcNow().AddMinutes(30), account);
+        var earlier = await h.PostAsync(h.Clock.GetUtcNow().AddMinutes(10), account);
         await h.Scheduler.RunDueAsync(Ct);
         h.Scheduler.NextWakeUtc.ShouldBe(earlier.ScheduledAtUtc);
+        h.Scheduler.NextPostUtc.ShouldBe(earlier.ScheduledAtUtc);
     }
 
     [Fact]
@@ -145,7 +148,8 @@ public sealed class SchedulerTests
         platform.Sent.Count.ShouldBe(1);
         h.Notifier.All.ShouldContain(n => n.Title == "notify.missed");
 
-        await h.Scheduler.SendNowAsync(missed.Id, Ct);
+        (await h.Decisions.SendNowAsync(missed.Id, Ct)).ShouldBeTrue();
+        await h.Scheduler.RunDueAsync(Ct);
         (await h.ReloadAsync(missed)).Status.ShouldBe(PostStatus.Done);
         platform.Sent.Count.ShouldBe(2);
     }
@@ -169,7 +173,8 @@ public sealed class SchedulerTests
         stopped.Targets[1].Message.ShouldBe("file refused");
         h.Notifier.All.ShouldContain(n => n.Kind == NotificationKind.Failed);
 
-        await h.Scheduler.SkipFailedAsync(post.Id, Ct);
+        (await h.Decisions.SkipFailedAsync(post.Id, Ct)).ShouldBeTrue();
+        await h.Scheduler.RunDueAsync(Ct);
         var done = await h.ReloadAsync(post);
         done.Status.ShouldBe(PostStatus.Done);
         done.Targets.Select(t => t.Status).ShouldBe([TargetStatus.Published, TargetStatus.Skipped, TargetStatus.Published]);
@@ -187,7 +192,8 @@ public sealed class SchedulerTests
 
         await h.Scheduler.StartAsync(Ct);
         (await h.ReloadAsync(post)).Status.ShouldBe(PostStatus.Stopped);
-        await h.Scheduler.RetryAsync(post.Id, Ct);
+        (await h.Decisions.RetryAsync(post.Id, Ct)).ShouldBeTrue();
+        await h.Scheduler.RunDueAsync(Ct);
         (await h.ReloadAsync(post)).Status.ShouldBe(PostStatus.Done);
         platform.Sent.Count.ShouldBe(2);
     }
@@ -207,7 +213,7 @@ public sealed class SchedulerTests
         platform.Sent.ShouldBeEmpty();
         blocked.Targets[1].Message.ShouldStartWith("problem.reconnect");
 
-        await h.Scheduler.CancelAsync(post.Id, Ct);
+        (await h.Decisions.CancelAsync(post.Id, Ct)).ShouldBeTrue();
         (await h.ReloadAsync(post)).Status.ShouldBe(PostStatus.Canceled);
     }
 
@@ -266,6 +272,87 @@ public sealed class SchedulerTests
         var target = (await h.ReloadAsync(post)).Targets.Single();
         target.Status.ShouldBe(TargetStatus.Published);
         target.Url.ShouldBe("https://example.com/watch");
+    }
+
+    [Fact]
+    public async Task APostMovedAfterItWasReadIsNotClaimedWithItsOldTime()
+    {
+        var platform = new ScriptedPlatform();
+        using var h = await SchedulerHarness.CreateAsync(platform);
+        var account = await h.AccountAsync(platform.Code, "A");
+        var post = await h.PostAsync(h.Clock.GetUtcNow(), account);
+        var oldTime = post.ScheduledAtUtc;
+
+        // The window moves the post while the scheduler holds the old reading.
+        var edited = await h.ReloadAsync(post);
+        edited.ScheduledAtUtc = h.Clock.GetUtcNow().AddDays(1);
+        (await h.Posts.SaveEditAsync(edited, PostEditing.EditableStates, Ct)).ShouldBeTrue();
+
+        (await h.Posts.TryMoveAsync(new PostClaim(post.Id, PostStatus.Scheduled, oldTime, PostStatus.Publishing), Ct)).ShouldBeFalse();
+        (await h.Posts.TryMoveAsync(new PostClaim(post.Id, PostStatus.Scheduled, edited.ScheduledAtUtc, PostStatus.Publishing), Ct)).ShouldBeTrue();
+        (await h.Posts.TryMoveAsync(new PostClaim(post.Id, PostStatus.Scheduled, edited.ScheduledAtUtc, PostStatus.Publishing), Ct)).ShouldBeFalse();
+        (await h.ReloadAsync(post)).Status.ShouldBe(PostStatus.Publishing);
+    }
+
+    [Fact]
+    public async Task OnlyAClaimedPostIsSentAndADecisionDoesNotTouchIt()
+    {
+        var platform = new ScriptedPlatform();
+        using var h = await SchedulerHarness.CreateAsync(platform);
+        var account = await h.AccountAsync(platform.Code, "A");
+        var post = await h.PostAsync(h.Clock.GetUtcNow(), account);
+
+        await Should.ThrowAsync<InvalidOperationException>(() => h.Sender.SendAsync(post, Ct));
+        platform.Sent.ShouldBeEmpty();
+
+        (await h.Posts.TryMoveAsync(new PostClaim(post.Id, PostStatus.Scheduled, post.ScheduledAtUtc, PostStatus.Publishing), Ct)).ShouldBeTrue();
+        (await h.Decisions.CancelAsync(post.Id, Ct)).ShouldBeFalse();
+        (await h.Decisions.SendNowAsync(post.Id, Ct)).ShouldBeFalse();
+        (await h.ReloadAsync(post)).Status.ShouldBe(PostStatus.Publishing);
+
+        // A second scheduler run finds nothing to claim: the post goes out once.
+        await h.Scheduler.StartAsync(Ct);
+        await h.Scheduler.RunDueAsync(Ct);
+        platform.Sent.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task APausedSchedulerSendsNothingAndLatePostsWaitAfterResume()
+    {
+        var platform = new ScriptedPlatform();
+        using var h = await SchedulerHarness.CreateAsync(platform);
+        var account = await h.AccountAsync(platform.Code, "A");
+        var post = await h.PostAsync(h.Clock.GetUtcNow(), account);
+
+        await h.Scheduler.StartAsync(Ct, paused: true);
+        h.Scheduler.IsPaused.ShouldBeTrue();
+        h.Scheduler.NextWakeUtc.ShouldBeNull();
+        (await h.ReloadAsync(post)).Status.ShouldBe(PostStatus.Scheduled);
+
+        h.Clock.Advance(TimeSpan.FromMinutes(10));
+        h.Scheduler.Resume();
+        (await h.WaitForAsync(post, PostStatus.Missed)).Status.ShouldBe(PostStatus.Missed);
+        platform.Sent.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task TheRefreshLockMakesTheOtherProcessWait()
+    {
+        var platform = new ScriptedPlatform();
+        using var h = await SchedulerHarness.CreateAsync(platform);
+        var account = Guid.NewGuid();
+
+        // Another gate on the same data folder stands for the other process (window or scheduler).
+        var other = new FileRefreshGate(h.Paths, TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<FileRefreshGate>.Instance);
+        var held = await h.Gate.EnterAsync(account, Ct);
+        var waiting = other.EnterAsync(account, Ct);
+        await Task.Delay(500, Ct);
+        waiting.IsCompleted.ShouldBeFalse();
+
+        await held.DisposeAsync();
+        await using var second = await waiting.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        await using var third = await other.EnterAsync(Guid.NewGuid(), Ct);
+        third.ShouldNotBeNull();
     }
 
     [Fact]

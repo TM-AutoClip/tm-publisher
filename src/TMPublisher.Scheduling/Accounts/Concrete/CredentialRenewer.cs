@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Accounts;
 using TMPublisher.Core.Platforms;
@@ -9,14 +8,13 @@ namespace TMPublisher.Scheduling.Accounts;
 /// <summary>
 /// Fresh credentials for an account: refreshes with the user's own app when they are about to expire, and once more when the platform
 /// rejects the token; every refresh is stored at once (a rotated refresh token must not be lost). A rejected refresh marks the account
-/// "connect again". Refreshes of one account run one at a time, and each re-reads the stored values first: with a rotating refresh token
-/// (X) a second refresh with the old token would be refused and wrongly mark a working account.
+/// "connect again". Refreshes of one account run one at a time, also across the background scheduler and the window
+/// (<see cref="IRefreshGate"/>), and each re-reads the stored values first: with a rotating refresh token (X) a second refresh with the old
+/// token would be refused and wrongly mark a working account.
 /// </summary>
-public sealed class CredentialRenewer(IPlatformDirectory platforms, ICredentialStore credentials, IAccountStore accounts, TimeProvider clock,
+public sealed class CredentialRenewer(IPlatformDirectory platforms, ICredentialStore credentials, IAccountStore accounts, IRefreshGate gate, TimeProvider clock,
     ILogger<CredentialRenewer> logger)
 {
-    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _gates = new();
-
     /// <summary>The account's credentials, refreshed first when needed.</summary>
     public async Task<Credentials> GetFreshAsync(Account account, CancellationToken cancellationToken)
     {
@@ -54,14 +52,14 @@ public sealed class CredentialRenewer(IPlatformDirectory platforms, ICredentialS
     public Task SaveAsync(Guid accountId, Credentials values, CancellationToken cancellationToken) =>
         credentials.SaveAsync(accountId, values, cancellationToken);
 
-    /// <summary>Marks the account "connect again".</summary>
+    /// <summary>Marks the account "connect again" (only its state is written; a rename in the window meanwhile is kept).</summary>
     public async Task MarkReconnectAsync(Account account, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(account);
         if (account.State != AccountState.NeedsReconnect)
         {
             account.State = AccountState.NeedsReconnect;
-            await accounts.SaveAsync(account, cancellationToken).ConfigureAwait(false);
+            await accounts.SetStateAsync(account.Id, AccountState.NeedsReconnect, cancellationToken).ConfigureAwait(false);
             logger.LogWarning("Account {AccountId} ({Platform}) needs to be connected again", account.Id, account.Platform);
         }
     }
@@ -72,36 +70,29 @@ public sealed class CredentialRenewer(IPlatformDirectory platforms, ICredentialS
     private async Task<Credentials> RefreshAsync(Account account, ITokenRefresher refresher, Func<Credentials, bool> stillNeeded,
         CancellationToken cancellationToken)
     {
-        var gate = _gates.GetOrAdd(account.Id, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await using var held = await gate.EnterAsync(account.Id, cancellationToken).ConfigureAwait(false);
+
+        // Read again under the lock: a refresh that finished while this caller waited (here or in the other process) has stored new values.
+        var stored = await credentials.GetAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        if (!stillNeeded(stored))
+        {
+            logger.LogInformation("Tokens of account {AccountId} ({Platform}) were already refreshed by another task", account.Id, account.Platform);
+            return stored;
+        }
+
         try
         {
-            // Read again under the lock: a refresh that finished while this caller waited has already stored new values.
-            var stored = await credentials.GetAsync(account.Id, cancellationToken).ConfigureAwait(false);
-            if (!stillNeeded(stored))
-            {
-                logger.LogInformation("Tokens of account {AccountId} ({Platform}) were already refreshed by another task", account.Id, account.Platform);
-                return stored;
-            }
-
-            try
-            {
-                var fresh = await refresher.RefreshAsync(stored, cancellationToken).ConfigureAwait(false);
-                await credentials.SaveAsync(account.Id, fresh, cancellationToken).ConfigureAwait(false);
-                logger.LogInformation("Tokens of account {AccountId} ({Platform}) refreshed", account.Id, account.Platform);
-                return fresh;
-            }
-            catch (PlatformAuthException ex)
-            {
-                logger.LogWarning("Refreshing the tokens of account {AccountId} ({Platform}) was refused: {Reason}", account.Id, account.Platform,
-                    Core.Security.Redactor.Redact(ex.Message));
-                await MarkReconnectAsync(account, cancellationToken).ConfigureAwait(false);
-                throw;
-            }
+            var fresh = await refresher.RefreshAsync(stored, cancellationToken).ConfigureAwait(false);
+            await credentials.SaveAsync(account.Id, fresh, cancellationToken).ConfigureAwait(false);
+            logger.LogInformation("Tokens of account {AccountId} ({Platform}) refreshed", account.Id, account.Platform);
+            return fresh;
         }
-        finally
+        catch (PlatformAuthException ex)
         {
-            gate.Release();
+            logger.LogWarning("Refreshing the tokens of account {AccountId} ({Platform}) was refused: {Reason}", account.Id, account.Platform,
+                Core.Security.Redactor.Redact(ex.Message));
+            await MarkReconnectAsync(account, cancellationToken).ConfigureAwait(false);
+            throw;
         }
     }
 }

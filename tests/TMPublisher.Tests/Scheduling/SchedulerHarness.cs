@@ -24,12 +24,14 @@ internal sealed class SchedulerHarness : IDisposable
         Credentials = new CredentialStore(storage.Factory);
         Log = new PublishLogStore(storage.Factory);
         var directory = new PlatformDirectory(platforms);
-        var renewer = new CredentialRenewer(directory, Credentials, Accounts, Clock, NullLogger<CredentialRenewer>.Instance);
+        Gate = new FileRefreshGate(storage.Paths, TimeProvider.System, NullLogger<FileRefreshGate>.Instance);
+        var renewer = new CredentialRenewer(directory, Credentials, Accounts, Gate, Clock, NullLogger<CredentialRenewer>.Instance);
         Renewer = renewer;
         var text = new KeyLocalizer();
         Sender = new PostSender(Posts, Accounts, Credentials, directory, renewer, new QuotaChecker(Log, Clock), Log, Notifier, text, Clock, NullLogger<PostSender>.Instance);
         Watcher = new ProcessingWatcher(Posts, Accounts, directory, renewer, Notifier, text, Clock, NullLogger<ProcessingWatcher>.Instance);
         Scheduler = new PostScheduler(Posts, Sender, Watcher, Notifier, text, Clock, NullLogger<PostScheduler>.Instance);
+        Decisions = new PostDecisions(Posts, Clock, NullLogger<PostDecisions>.Instance);
     }
 
     public FakeTimeProvider Clock { get; }
@@ -51,6 +53,12 @@ internal sealed class SchedulerHarness : IDisposable
     public ProcessingWatcher Watcher { get; }
 
     public PostScheduler Scheduler { get; }
+
+    public PostDecisions Decisions { get; }
+
+    public FileRefreshGate Gate { get; }
+
+    public TMPublisher.Core.Paths.IAppPaths Paths => _storage.Paths;
 
     public static async Task<SchedulerHarness> CreateAsync(params ScriptedPlatform[] platforms) =>
         new(await StorageHarness.CreatedAsync(), platforms);
