@@ -9,6 +9,8 @@ using TMPublisher.Platforms.Common;
 using TMPublisher.Platforms.Discord;
 using TMPublisher.Platforms.Mastodon;
 using TMPublisher.Platforms.Telegram;
+using TMPublisher.Platforms.X;
+using TMPublisher.Platforms.YouTube;
 using TMPublisher.Platforms.Connections;
 using TMPublisher.Scheduling.Accounts;
 using TMPublisher.Core.Localization;
@@ -102,6 +104,8 @@ public static class DesktopServices
         services.AddSingleton<ILoopbackListener, LoopbackListener>();
         services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
         services.AddSingleton<CredentialRenewer>();
+        services.AddSingleton<IPlatform, YouTubePlatform>();
+        services.AddSingleton<IPlatform, XPlatform>();
         services.AddSingleton<IPlatform, TelegramPlatform>();
         services.AddSingleton<IPlatform, DiscordPlatform>();
         services.AddSingleton<IPlatform, BlueskyPlatform>();
