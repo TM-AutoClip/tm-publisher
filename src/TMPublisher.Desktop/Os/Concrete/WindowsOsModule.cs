@@ -17,5 +17,6 @@ public sealed class WindowsOsModule : IOsModule
     {
         services.AddSingleton<IKeyProtector, DpapiKeyProtector>();
         services.AddSingleton<IAutostart, WindowsAutostart>();
+        services.AddSingleton<TMPublisher.Scheduling.IPowerEvents, WindowsPowerEvents>();
     }
 }

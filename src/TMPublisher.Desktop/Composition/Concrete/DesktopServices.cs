@@ -17,6 +17,7 @@ using TMPublisher.Platforms.TikTok;
 using TMPublisher.Platforms.X;
 using TMPublisher.Platforms.YouTube;
 using TMPublisher.Platforms.Connections;
+using TMPublisher.Scheduling;
 using TMPublisher.Scheduling.Accounts;
 using TMPublisher.Core.Localization;
 using TMPublisher.Core.Notifications;
@@ -97,12 +98,14 @@ public static class DesktopServices
         services.AddTransient<ConnectViewModel>();
         services.AddSingleton<Func<ConnectViewModel>>(s => s.GetRequiredService<ConnectViewModel>);
         services.AddSingleton<PageViewModelBase, ComposeViewModel>();
+        services.AddSingleton<PageViewModelBase, AttentionViewModel>();
         services.AddSingleton<PageViewModelBase, AccountsViewModel>();
         services.AddSingleton<PageViewModelBase, GroupsViewModel>();
         services.AddSingleton<PageViewModelBase, TagSetsViewModel>();
         services.AddSingleton<PageViewModelBase, SettingsViewModel>();
         services.AddSingleton(new ViewLocator()
             .Register<ComposeViewModel, ComposeView>()
+            .Register<AttentionViewModel, AttentionView>()
             .Register<AccountsViewModel, AccountsView>()
             .Register<TagSetsViewModel, TagSetsView>()
             .Register<GroupsViewModel, GroupsView>()
@@ -113,6 +116,12 @@ public static class DesktopServices
         services.AddSingleton<ILoopbackListener, LoopbackListener>();
         services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
         services.AddSingleton<CredentialRenewer>();
+        services.AddSingleton<QuotaChecker>();
+        services.AddSingleton<PostSender>();
+        services.AddSingleton<ProcessingWatcher>();
+        services.AddSingleton<PostScheduler>();
+        services.AddSingleton<IPostScheduler>(s => s.GetRequiredService<PostScheduler>());
+        services.AddSingleton<IStartupTask, SchedulerStartupTask>();
         services.AddSingleton<IPlatform, YouTubePlatform>();
         services.AddSingleton<IPlatform, XPlatform>();
         services.AddSingleton<IPlatform, TikTokPlatform>();

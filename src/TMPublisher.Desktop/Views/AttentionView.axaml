@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+             xmlns:l="using:TMPublisher.Desktop.Localization"
+             x:Class="TMPublisher.Desktop.Views.AttentionView"
+             x:DataType="vm:AttentionViewModel">
+  <DockPanel Margin="28">
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,16">
+      <TextBlock Text="{l:Tr nav.attention}" Classes="h1" />
+      <TextBlock Text="{l:Tr attention.intro}" Classes="muted" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Status}" Classes="muted" TextWrapping="Wrap" />
+    </StackPanel>
+    <ScrollViewer>
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AttentionRowViewModel">
+            <Border Classes="card" Margin="0,0,0,8">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                  <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                  <TextBlock Grid.Column="1" Text="{Binding When}" Classes="small" />
+                </Grid>
+                <TextBlock Text="{Binding State}" Classes="warning" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Targets}" Classes="small" TextWrapping="Wrap" />
+                <WrapPanel>
+                  <Button Classes="accent" Margin="0,0,6,6" Content="{l:Tr attention.retry}" IsVisible="{Binding IsStopped}"
+                          Command="{Binding $parent[UserControl].((vm:AttentionViewModel)DataContext).RetryCommand}" CommandParameter="{Binding}" />
+                  <Button Margin="0,0,6,6" Content="{l:Tr attention.skip}" IsVisible="{Binding IsStopped}"
+                          Command="{Binding $parent[UserControl].((vm:AttentionViewModel)DataContext).SkipCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="accent" Margin="0,0,6,6" Content="{l:Tr compose.send_now}" IsVisible="{Binding !IsStopped}"
+                          Command="{Binding $parent[UserControl].((vm:AttentionViewModel)DataContext).SendNowCommand}" CommandParameter="{Binding}" />
+                  <DatePicker Margin="0,0,6,6" SelectedDate="{Binding Date}" IsVisible="{Binding !IsStopped}" />
+                  <TimePicker Margin="0,0,6,6" SelectedTime="{Binding Time}" ClockIdentifier="24HourClock" IsVisible="{Binding !IsStopped}" />
+                  <Button Margin="0,0,6,6" Content="{l:Tr attention.reschedule}" IsVisible="{Binding !IsStopped}"
+                          Command="{Binding $parent[UserControl].((vm:AttentionViewModel)DataContext).RescheduleCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="danger" Margin="0,0,6,6" Content="{l:Tr attention.cancel}"
+                          Command="{Binding $parent[UserControl].((vm:AttentionViewModel)DataContext).CancelCommand}" CommandParameter="{Binding}" />
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

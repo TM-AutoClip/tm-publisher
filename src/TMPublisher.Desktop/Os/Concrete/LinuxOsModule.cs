@@ -21,5 +21,6 @@ public sealed class LinuxOsModule : IOsModule
         services.AddSingleton<ICommandRunner, ProcessCommandRunner>();
         services.AddSingleton<IKeyProtector, SecretServiceKeyProtector>();
         services.AddSingleton<IAutostart, LinuxAutostart>();
+        services.AddSingleton<TMPublisher.Scheduling.IPowerEvents, LinuxPowerEvents>();
     }
 }

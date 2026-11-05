@@ -18,7 +18,7 @@ namespace TMPublisher.Desktop.ViewModels;
 /// sent, with the same checks the sender runs; X cost estimate; send now, schedule or keep as a draft.
 /// </summary>
 public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore groups, ITagSetStore tagSets, IPostStore posts, IPlatformDirectory platforms,
-    AppSession session, FileDialogs dialogs, TimeProvider clock, Localizer text, ILogger<ComposeViewModel> logger) : PageViewModelBase
+    IPostScheduler scheduler, AppSession session, FileDialogs dialogs, TimeProvider clock, Localizer text, ILogger<ComposeViewModel> logger) : PageViewModelBase
 {
     private readonly Dictionary<string, string> _defaultTags = new(StringComparer.Ordinal);
     private Guid? _editing;
@@ -32,9 +32,6 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
 
     /// <inheritdoc />
     public override int Order => 10;
-
-    /// <summary>Raised after a post is stored (the scheduler re-arms).</summary>
-    public event EventHandler<Post>? Saved;
 
     /// <summary>Files in order.</summary>
     public ObservableCollection<MediaItem> Media { get; } = [];
@@ -453,7 +450,7 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
         })];
         await posts.SaveAsync(post, CancellationToken.None).ConfigureAwait(true);
         logger.LogInformation("Post {PostId} stored as {Status} with {Targets} targets", post.Id, status, post.Targets.Count);
-        Saved?.Invoke(this, post);
+        scheduler.Wake();
         var when = at is { } time ? TimeZoneInfo.ConvertTime(time, clock.LocalTimeZone).ToString("g", text.Culture) : string.Empty;
         Clear();
         Status = text.Format(doneKey, when);
