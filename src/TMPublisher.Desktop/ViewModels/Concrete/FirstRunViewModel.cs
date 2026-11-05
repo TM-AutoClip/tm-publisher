@@ -5,19 +5,23 @@ using TMPublisher.Core.Settings;
 using TMPublisher.Desktop.Localization;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
+using TMPublisher.Desktop.Scheduler;
 using TMPublisher.Desktop.Startup;
 using TMPublisher.Storage.Backup;
 using TMPublisher.Storage.Crypto;
 using TMPublisher.Storage.Keys;
+using TMPublisher.Runtime.Ipc;
 
 namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>
 /// First run: language, then a new start (keyring protection or a master password; autostart on by default) or a restore from a backup.
-/// Everything is in one window; a step cannot finish with a required value missing.
+/// Everything is in one window; a step cannot finish with a required value missing. The restore is also offered by the unlock window, while the
+/// background scheduler may already run on the current data: it is stopped before the database is replaced, like Settings → Restore does.
 /// </summary>
 public sealed partial class FirstRunViewModel(Vault vault, BackupService backup, AppSession session, UiMasterPassword masterPassword,
-    UiPreferencesFile preferences, IAutostart autostart, FileDialogs dialogs, Localizer text, ILogger<FirstRunViewModel> logger) : ObservableObject
+    UiPreferencesFile preferences, IAutostart autostart, FileDialogs dialogs, SchedulerSupervisor supervisor, Localizer text,
+    ILogger<FirstRunViewModel> logger) : ObservableObject
 {
     /// <summary>Raised when the language was chosen (the window is rebuilt in that language).</summary>
     public event EventHandler? LanguageChosen;
@@ -157,7 +161,31 @@ public sealed partial class FirstRunViewModel(Vault vault, BackupService backup,
 
         await RunAsync(async () =>
         {
-            var report = await backup.RestoreAsync(BackupFile, BackupPassword, Protector(), CancellationToken.None).ConfigureAwait(true);
+            // A running scheduler would keep writing to the replaced file and keep the old key (every read would fail): stopped first, not
+            // while a post is being sent. After the restore the main window starts it on the restored data and hands the new key over.
+            var wasRunning = (await supervisor.RefreshAsync(CancellationToken.None).ConfigureAwait(true)).Status != SchedulerStatus.NotRunning;
+            if (!await supervisor.StopAndWaitAsync(CancellationToken.None).ConfigureAwait(true))
+            {
+                Message = text["restore.scheduler_busy"];
+                return;
+            }
+
+            RestoreReport report;
+            try
+            {
+                report = await backup.RestoreAsync(BackupFile, BackupPassword, Protector(), CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception)
+            {
+                // The previous database is back in place (the replace rolled back): the scheduler that ran on it starts again.
+                if (wasRunning)
+                {
+                    await RestartSchedulerAsync().ConfigureAwait(true);
+                }
+
+                throw;
+            }
+
             await FinishAsync().ConfigureAwait(true);
             logger.LogInformation("Restored {Accounts} accounts and {Posts} posts; {Missing} media files missing", report.Accounts, report.Posts, report.MissingFiles.Count);
             if (report.MissingFiles.Count > 0)
@@ -165,6 +193,20 @@ public sealed partial class FirstRunViewModel(Vault vault, BackupService backup,
                 session.PendingMessage = text.Format("restore.missing_files", report.MissingFiles.Count, string.Join(", ", report.MissingFiles.Take(5).Select(Path.GetFileName)));
             }
         }).ConfigureAwait(true);
+    }
+
+    private async Task RestartSchedulerAsync()
+    {
+        try
+        {
+            var state = await supervisor.EnsureRunningAsync(CancellationToken.None).ConfigureAwait(true);
+            logger.LogInformation("Background scheduler after the failed restore: {Status}", state.Status);
+        }
+        catch (Exception ex)
+        {
+            // The restore error is what the user sees; this one is kept in the log (the main window starts the scheduler again).
+            logger.LogError(ex, "The background scheduler could not be started again after the failed restore");
+        }
     }
 
     private IKeyProtector Protector()

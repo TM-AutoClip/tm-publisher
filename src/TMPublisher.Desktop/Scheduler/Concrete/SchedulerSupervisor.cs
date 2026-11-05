@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
+using TMPublisher.Core.Instance;
+using TMPublisher.Core.Localization;
 using TMPublisher.Core.Notifications;
 using TMPublisher.Desktop.Notifications;
 using TMPublisher.Desktop.Startup;
@@ -15,8 +17,8 @@ namespace TMPublisher.Desktop.Scheduler;
 /// in the environment or in a log), tells it to read the schedule again after a change, and listens for its events while the window is open
 /// ("posts changed", notifications, which this window then shows instead of the short-lived notification process).
 /// </summary>
-public sealed class SchedulerSupervisor(AppPaths paths, Vault vault, DatabaseKey key, ISchedulerLauncher launcher, ToastNotifier toasts, TimeProvider clock,
-    ILogger<SchedulerSupervisor> logger) : IStartupTask, IDisposable
+public sealed class SchedulerSupervisor(AppPaths paths, Vault vault, DatabaseKey key, ISchedulerLauncher launcher, ToastNotifier toasts,
+    IOldVersionCheck oldVersion, ILocalizer text, TimeProvider clock, ILogger<SchedulerSupervisor> logger) : IStartupTask, IDisposable
 {
     private static readonly TimeSpan StartWait = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan StopWait = TimeSpan.FromSeconds(15);
@@ -64,6 +66,14 @@ public sealed class SchedulerSupervisor(AppPaths paths, Vault vault, DatabaseKey
 
             if (state.Status == SchedulerStatus.NotRunning)
             {
+                if (oldVersion.OldVersionRuns())
+                {
+                    // Two schedulers on one database could send a post twice; the old one does not claim posts.
+                    logger.LogError("An older TM Publisher (0.1.0-0.1.2) runs on the same data; the background scheduler is not started next to it");
+                    Publish(new SchedulerState { Status = SchedulerStatus.NotRunning, Message = text["scheduler.old_version"] });
+                    return State;
+                }
+
                 if (!launcher.TryStart(out var reason))
                 {
                     logger.LogError("The background scheduler could not be started: {Reason}", reason);
@@ -148,10 +158,10 @@ public sealed class SchedulerSupervisor(AppPaths paths, Vault vault, DatabaseKey
 
         if (state.Status == SchedulerStatus.NoDatabase)
         {
-            // The first start was just finished in this window.
+            // The first start was just finished in this window. A master-password database then waits for the key: handed over below.
             var reply = await _client.SendAsync(SchedulerCommands.Reload, null, cancellationToken).ConfigureAwait(false);
             Log("open the new database", reply);
-            return await RefreshAsync(cancellationToken).ConfigureAwait(false);
+            state = await RefreshAsync(cancellationToken).ConfigureAwait(false);
         }
 
         if (state.Status == SchedulerStatus.WaitingForKey)
@@ -196,6 +206,16 @@ public sealed class SchedulerSupervisor(AppPaths paths, Vault vault, DatabaseKey
                 logger.LogWarning("The background scheduler did not answer the wake-up ({Reason}); starting it", reply.Text);
                 await EnsureRunningAsync(CancellationToken.None).ConfigureAwait(false);
                 StartWatching();
+                return;
+            }
+
+            // It answers but still waits for the database or its key while this window has it open (a hand-over that did not happen, a
+            // scheduler started again from outside): handed over now instead of never.
+            if (vault.State == VaultState.Open
+                && (await RefreshAsync(CancellationToken.None).ConfigureAwait(false)).Status is SchedulerStatus.WaitingForKey or SchedulerStatus.NoDatabase)
+            {
+                logger.LogWarning("The background scheduler still waits for the database ({Status}); handing it over again", State.Status);
+                await EnsureRunningAsync(CancellationToken.None).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
