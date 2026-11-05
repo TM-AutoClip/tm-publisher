@@ -17,7 +17,13 @@ public sealed class PlatformHttp(HttpClient client)
         ArgumentNullException.ThrowIfNull(request);
         using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return new PlatformReply((int)response.StatusCode, body, response.Headers.RetryAfter?.Delta);
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, values) in response.Headers)
+        {
+            headers.TryAdd(name, values.FirstOrDefault() ?? string.Empty);
+        }
+
+        return new PlatformReply((int)response.StatusCode, body, response.Headers.RetryAfter?.Delta, headers);
     }
 
     /// <summary>GET with an optional bearer token; JSON body or <see cref="PlatformRejectedException"/> / <see cref="PlatformAuthException"/>.</summary>

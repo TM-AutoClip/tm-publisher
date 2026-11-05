@@ -58,7 +58,7 @@ public abstract class LoopbackPkceConnectionBase(HttpTransport transport, TimePr
         using (session)
         {
             prompt.Status("connect.waiting_browser");
-            await prompt.OpenBrowserAsync(AuthorizeUri(app, state, pkce.Challenge), cancellationToken).ConfigureAwait(false);
+            await prompt.OpenBrowserAsync(AuthorizeUri(app, state, Challenge(pkce)), cancellationToken).ConfigureAwait(false);
             using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             limit.CancelAfter(SignInLimit);
             var callback = await session.WaitAsync(limit.Token).ConfigureAwait(false);
@@ -75,6 +75,13 @@ public abstract class LoopbackPkceConnectionBase(HttpTransport transport, TimePr
             prompt.Status("connect.exchanging");
             return await ExchangeAsync(app, callback.Code, pkce.Verifier, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>The code challenge sent in the sign-in address (S256, base64url); TikTok's desktop flow wants hex instead.</summary>
+    protected virtual string Challenge(Pkce pkce)
+    {
+        ArgumentNullException.ThrowIfNull(pkce);
+        return pkce.Challenge;
     }
 
     /// <summary>The platform's sign-in address.</summary>

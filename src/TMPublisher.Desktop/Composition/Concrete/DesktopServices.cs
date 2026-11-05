@@ -7,10 +7,13 @@ using TMPublisher.Desktop.Accounts;
 using TMPublisher.Platforms.Bluesky;
 using TMPublisher.Platforms.Common;
 using TMPublisher.Platforms.Discord;
+using TMPublisher.Platforms.LinkedIn;
 using TMPublisher.Platforms.Mastodon;
+using TMPublisher.Platforms.Pinterest;
 using TMPublisher.Platforms.Meta;
 using TMPublisher.Platforms.Telegram;
 using TMPublisher.Platforms.Threads;
+using TMPublisher.Platforms.TikTok;
 using TMPublisher.Platforms.X;
 using TMPublisher.Platforms.YouTube;
 using TMPublisher.Platforms.Connections;
@@ -108,6 +111,7 @@ public static class DesktopServices
         services.AddSingleton<CredentialRenewer>();
         services.AddSingleton<IPlatform, YouTubePlatform>();
         services.AddSingleton<IPlatform, XPlatform>();
+        services.AddSingleton<IPlatform, TikTokPlatform>();
         services.AddSingleton<IPlatform, InstagramPlatform>();
         services.AddSingleton<IPlatform, FacebookPlatform>();
         services.AddSingleton<IPlatform, ThreadsPlatform>();
@@ -115,6 +119,8 @@ public static class DesktopServices
         services.AddSingleton<IPlatform, DiscordPlatform>();
         services.AddSingleton<IPlatform, BlueskyPlatform>();
         services.AddSingleton<IPlatform, MastodonPlatform>();
+        services.AddSingleton<IPlatform, PinterestPlatform>();
+        services.AddSingleton<IPlatform, LinkedInPlatform>();
         overrides?.Invoke(services);
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }
