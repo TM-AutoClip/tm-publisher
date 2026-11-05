@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
+using TMPublisher.Core.Instance;
 using TMPublisher.Core.Localization;
 using TMPublisher.Core.Notifications;
 using TMPublisher.Core.Posts;
+using TMPublisher.Core.Security;
 
 namespace TMPublisher.Scheduling;
 
@@ -11,12 +13,14 @@ namespace TMPublisher.Scheduling;
 /// polling in between. A due post is first claimed in the database (scheduled → publishing, only if nobody changed it meanwhile) and then read
 /// again and sent, so an edit, a move or a second scheduler can never make it go out twice or with old content. Posts are sent one at a time.
 /// A post found more than five minutes late (the computer was off or asleep, scheduling was paused) is not sent on its own: it becomes
-/// "missed" and waits for the user.
+/// "missed" and waits for the user. Nothing is claimed while an old TM Publisher (0.1.0–0.1.2, which sends without claiming) runs on the
+/// same data, and nothing new is claimed once a stop was asked for.
 /// </summary>
 public sealed class PostScheduler : IDisposable
 {
     private readonly IPostStore _posts;
     private readonly PostSender _sender;
+    private readonly IOldVersionCheck _oldVersion;
     private readonly ProcessingWatcher _watcher;
     private readonly INotifier _notifier;
     private readonly ILocalizer _text;
@@ -26,16 +30,20 @@ public sealed class PostScheduler : IDisposable
     private readonly Lock _timerGate = new();
     private ITimer? _timer;
     private bool _started;
-    private bool _stopped;
+    private volatile bool _stopped;
     private volatile bool _paused;
+    private int _stopRequests;
+    private int _failures;
+    private int _oldVersionSeen;
 
     /// <summary>Creates.</summary>
-    public PostScheduler(IPostStore posts, PostSender sender, ProcessingWatcher watcher, INotifier notifier, ILocalizer text, TimeProvider clock,
-        ILogger<PostScheduler> logger)
+    public PostScheduler(IPostStore posts, PostSender sender, IOldVersionCheck oldVersion, ProcessingWatcher watcher, INotifier notifier,
+        ILocalizer text, TimeProvider clock, ILogger<PostScheduler> logger)
     {
         ArgumentNullException.ThrowIfNull(sender);
         _posts = posts;
         _sender = sender;
+        _oldVersion = oldVersion;
         _watcher = watcher;
         _notifier = notifier;
         _text = text;
@@ -61,6 +69,8 @@ public sealed class PostScheduler : IDisposable
 
     /// <summary>Whether sending is paused by the user (nothing is sent or marked missed until it is resumed).</summary>
     public bool IsPaused => _paused;
+
+    private bool StopRequested => Volatile.Read(ref _stopRequests) > 0;
 
     /// <summary>
     /// Starts: posts left "publishing" by a closed or killed scheduler become "stopped" (the finished targets are known from the local record),
@@ -153,17 +163,42 @@ public sealed class PostScheduler : IDisposable
     }
 
     /// <summary>
-    /// Stops for good (the scheduler process is quitting): waits until the post being sent is finished, then no timer fires again. Returns
-    /// <c>false</c> without stopping when <paramref name="onlyIfIdle"/> and a post is being sent.
+    /// Stops for good (the scheduler process is quitting): the running pass claims no further post, the post being sent is finished, then no
+    /// timer fires again. <paramref name="onlyIfIdle"/>: returns <c>false</c> without stopping when a pass still holds the schedule after
+    /// <see cref="SchedulerLimits.IdleStopWait"/> (a post is being sent); a pass that is only reading or claiming sees the request and ends first.
+    /// The check and taking the schedule are one step, so a post claimed right after the check can never be cut off by this stop.
     /// </summary>
     public async Task<bool> StopAsync(bool onlyIfIdle, CancellationToken cancellationToken)
     {
-        if (onlyIfIdle && IsSending)
+        if (_stopped)
         {
-            return false;
+            return true;
         }
 
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        Interlocked.Increment(ref _stopRequests);
+        try
+        {
+            if (onlyIfIdle)
+            {
+                if (!await _gate.WaitAsync(SchedulerLimits.IdleStopWait, cancellationToken).ConfigureAwait(false))
+                {
+                    // Sending: the request is taken back, the pass goes on with the next due post.
+                    Interlocked.Decrement(ref _stopRequests);
+                    _logger.LogInformation("Not stopping: a post is being sent");
+                    return false;
+                }
+            }
+            else
+            {
+                await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Interlocked.Decrement(ref _stopRequests);
+            throw;
+        }
+
         _stopped = true;
         lock (_timerGate)
         {
@@ -217,18 +252,71 @@ public sealed class PostScheduler : IDisposable
         // Only one scheduler runs per data folder (its lock file), so a post still "publishing" here was left by a scheduler that ended.
         foreach (var post in await _posts.ListByStatusAsync([PostStatus.Publishing], cancellationToken).ConfigureAwait(false))
         {
-            foreach (var target in post.Targets.Where(t => t.Status == TargetStatus.Publishing))
-            {
-                target.Status = TargetStatus.Failed;
-                target.Message = _text["problem.interrupted"];
-            }
-
-            post.Status = PostStatus.Stopped;
-            await _posts.SaveAsync(post, cancellationToken).ConfigureAwait(false);
+            await StopForUserAsync(post, _text["problem.interrupted"], cancellationToken).ConfigureAwait(false);
             _logger.LogWarning("Post {PostId} was interrupted when the scheduler ended; waiting for the user", post.Id);
         }
 
         await _watcher.ResumeAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A claimed post whose sending stopped half way (the scheduler ended, or an error escaped the sender): the targets being sent become
+    /// failed with <paramref name="reason"/> and the post "stopped", which the user sees under Attention and can retry, skip or cancel. Finished
+    /// targets keep their state, so a retry sends only what is left.
+    /// </summary>
+    private async Task StopForUserAsync(Post post, string reason, CancellationToken cancellationToken)
+    {
+        foreach (var target in post.Targets.Where(t => t.Status == TargetStatus.Publishing))
+        {
+            target.Status = TargetStatus.Failed;
+            target.Message = reason;
+        }
+
+        post.Status = PostStatus.Stopped;
+        await _posts.SaveAsync(post, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>An exception escaped after the claim: the post must not stay "publishing" (nothing would send, list or retry it).</summary>
+    private async Task StopAfterErrorAsync(Guid postId, Exception error)
+    {
+        var reason = Redactor.Redact(error.Message);
+        try
+        {
+            if (await _posts.GetAsync(postId, CancellationToken.None).ConfigureAwait(false) is { Status: PostStatus.Publishing } stuck)
+            {
+                await StopForUserAsync(stuck, _text.Format("problem.send_error", reason), CancellationToken.None).ConfigureAwait(false);
+                _logger.LogWarning("Post {PostId} was set to wait for the user after the error", postId);
+            }
+        }
+        catch (Exception again)
+        {
+            _logger.LogError(again, "Post {PostId} stays publishing after the error; it waits for the user after the next start of the scheduler", postId);
+        }
+
+        _notifier.Notify(new AppNotification(NotificationKind.Failed, _text["notify.scheduler_error"], reason));
+    }
+
+    /// <summary>Whether an old TM Publisher runs on the same data; shown once each time it is found (the check repeats every minute).</summary>
+    private bool OldVersionBlocks()
+    {
+        if (!_oldVersion.OldVersionRuns())
+        {
+            if (Interlocked.Exchange(ref _oldVersionSeen, 0) == 1)
+            {
+                _logger.LogInformation("The older TM Publisher has ended; posts are sent again");
+            }
+
+            return false;
+        }
+
+        if (Interlocked.Exchange(ref _oldVersionSeen, 1) == 0)
+        {
+            _logger.LogError("An older TM Publisher (0.1.0-0.1.2) runs on the same data and sends posts without claiming them; nothing is claimed "
+                + "here until it ends (checked again every {Wait})", SchedulerLimits.ClaimRetry);
+            _notifier.Notify(new AppNotification(NotificationKind.Failed, _text["notify.scheduler_error"], _text["scheduler.old_version"]));
+        }
+
+        return true;
     }
 
     private async Task RunDueAsync(DateTimeOffset? lateFromUtc, CancellationToken cancellationToken)
@@ -249,12 +337,26 @@ public sealed class PostScheduler : IDisposable
                 return;
             }
 
-            while (!_paused && await _posts.NextScheduledAsync(cancellationToken).ConfigureAwait(false) is { ScheduledAtUtc: { } at } post && at <= _clock.GetUtcNow())
+            while (!_paused && !StopRequested
+                && await _posts.NextScheduledAsync(cancellationToken).ConfigureAwait(false) is { ScheduledAtUtc: { } at } post && at <= _clock.GetUtcNow())
             {
                 if (!refused.Add(post.Id))
                 {
                     // The claim of this post failed once in this run and it is still listed as due: never loop on it; the next run tries again.
                     _logger.LogError("Post {PostId} is due but could not be claimed twice in one run; trying again in {Wait}", post.Id, SchedulerLimits.ClaimRetry);
+                    stuck = true;
+                    break;
+                }
+
+                if (StopRequested)
+                {
+                    // Asked to stop while the schedule was read: no new claim (the post stays scheduled for the next start).
+                    _logger.LogInformation("Stopping: post {PostId} is left scheduled", post.Id);
+                    break;
+                }
+
+                if (OldVersionBlocks())
+                {
                     stuck = true;
                     break;
                 }
@@ -275,17 +377,23 @@ public sealed class PostScheduler : IDisposable
                     continue;
                 }
 
-                // Claimed: read again, so exactly what is stored now is sent.
-                if (await _posts.GetAsync(post.Id, cancellationToken).ConfigureAwait(false) is not { } claimed)
-                {
-                    _logger.LogWarning("Post {PostId} was deleted right after it was claimed; nothing sent", post.Id);
-                    continue;
-                }
-
                 IsSending = true;
                 try
                 {
+                    // Claimed: read again, so exactly what is stored now is sent.
+                    if (await _posts.GetAsync(post.Id, cancellationToken).ConfigureAwait(false) is not { } claimed)
+                    {
+                        _logger.LogWarning("Post {PostId} was deleted right after it was claimed; nothing sent", post.Id);
+                        continue;
+                    }
+
                     await _sender.SendAsync(claimed, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    // A database or file error before, during or after the requests (the sender records platform errors itself).
+                    _logger.LogError(ex, "Post {PostId} could not be sent after it was claimed", post.Id);
+                    await StopAfterErrorAsync(post.Id, ex).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -337,20 +445,57 @@ public sealed class PostScheduler : IDisposable
         try
         {
             await RunDueAsync(lateFromUtc, CancellationToken.None).ConfigureAwait(false);
+            if (Interlocked.Exchange(ref _failures, 0) > 0)
+            {
+                _logger.LogInformation("The scheduler handles the due posts again");
+            }
         }
         catch (Exception ex)
         {
-            // The schedule must keep going: the error is logged with its reason, shown, and the timer is set again.
-            _logger.LogError(ex, "The scheduler could not handle the due posts");
-            _notifier.Notify(new AppNotification(NotificationKind.Failed, _text["notify.scheduler_error"], ex.Message));
+            // The schedule must keep going: the error is logged with its reason, shown once per run of errors, and the timer is set again
+            // after a growing wait (1, 2, 4, 8, then 15 minutes), never at once: a full disk or a read-only database would fail again at once.
+            var failures = Interlocked.Increment(ref _failures);
+            var wait = Backoff(failures);
+            _logger.LogError(ex, "The scheduler could not handle the due posts (error {Count} in a row); trying again in {Wait}", failures, wait);
+            if (failures == 1)
+            {
+                _notifier.Notify(new AppNotification(NotificationKind.Failed, _text["notify.scheduler_error"], Redactor.Redact(ex.Message)));
+            }
+
             try
             {
-                await ArmAsync(CancellationToken.None).ConfigureAwait(false);
+                await ArmAsync(CancellationToken.None, wait).ConfigureAwait(false);
             }
             catch (Exception again)
             {
-                _logger.LogError(again, "The scheduler could not set its timer again");
+                // The schedule could not even be read: a timer that does not need the database is set, so the scheduler never ends up idle.
+                _logger.LogError(again, "The scheduler could not read the schedule to set its timer; trying again in {Wait}", wait);
+                ArmBlind(wait);
             }
+        }
+    }
+
+    /// <summary>The wait after the <paramref name="failures"/>-th error in a row.</summary>
+    internal static TimeSpan Backoff(int failures)
+    {
+        var ticks = SchedulerLimits.ClaimRetry.Ticks << Math.Clamp(failures - 1, 0, 4);
+        return TimeSpan.FromTicks(Math.Min(ticks, SchedulerLimits.SafetyInterval.Ticks));
+    }
+
+    private void ArmBlind(TimeSpan wait)
+    {
+        lock (_timerGate)
+        {
+            _timer?.Dispose();
+            _timer = null;
+            NextWakeUtc = null;
+            if (_stopped || _paused)
+            {
+                return;
+            }
+
+            NextWakeUtc = _clock.GetUtcNow() + wait;
+            _timer = _clock.CreateTimer(_ => _ = TickAsync(), null, wait, Timeout.InfiniteTimeSpan);
         }
     }
 }

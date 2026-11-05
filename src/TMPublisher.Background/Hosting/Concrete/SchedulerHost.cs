@@ -106,7 +106,9 @@ public sealed class SchedulerHost(AppPaths paths, Vault vault, PostScheduler sch
             case SchedulerCommands.Resume:
                 return await SetPausedAsync(false).ConfigureAwait(false);
             case SchedulerCommands.Quit:
-                if (scheduler.IsSending)
+                // Answered from the stop itself, not from a look at "sending": a pass that took the schedule a moment ago is either told to
+                // claim nothing more (and ends) or still sends after a short wait, which is "busy". Once stopped, nothing can be cut off.
+                if (!await scheduler.StopAsync(onlyIfIdle: true, CancellationToken.None).ConfigureAwait(false))
                 {
                     return SchedulerCommands.Busy;
                 }
@@ -201,7 +203,8 @@ public sealed class SchedulerHost(AppPaths paths, Vault vault, PostScheduler sch
     private async Task<string> ReloadAsync()
     {
         // The window finished the first start or changed how the key is protected. A running scheduler keeps its key (it does not change);
-        // a restore replaces the database only while the scheduler is stopped (the window stops it and starts it again).
+        // a restore replaces the database only while the scheduler is stopped: both restore paths of the window (Settings and the unlock /
+        // first-start window) stop it first and start it again.
         logger.LogInformation("The window asked to open the database again");
         if (_status is SchedulerStatus.Running or SchedulerStatus.Paused)
         {

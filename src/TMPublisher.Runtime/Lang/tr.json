@@ -320,6 +320,7 @@
   "problem.quota": "{0} · {1}: {3} başına {2} gönderi sınırı doldu.",
   "problem.auth_failed": "Erişim reddedildi; hesabı yeniden bağlayın. ({0})",
   "problem.interrupted": "Gönderirken program kapandı.",
+  "problem.send_error": "Gönderim bir hata yüzünden durdu: {0}",
   "quota.rolling24hours": "24 saat",
   "quota.pacificday": "gün (Pasifik saati)",
   "quota.rolling15minutes": "15 dakika",

@@ -320,6 +320,7 @@
   "problem.quota": "{0} · {1}: the limit of {2} posts per {3} is reached.",
   "problem.auth_failed": "Access was refused; connect the account again. ({0})",
   "problem.interrupted": "The program closed while sending.",
+  "problem.send_error": "Sending stopped because of an error: {0}",
   "quota.rolling24hours": "24 hours",
   "quota.pacificday": "day (Pacific time)",
   "quota.rolling15minutes": "15 minutes",

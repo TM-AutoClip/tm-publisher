@@ -30,13 +30,17 @@ internal sealed class SchedulerHarness : IDisposable
         var text = new KeyLocalizer();
         Sender = new PostSender(Posts, Accounts, Credentials, directory, renewer, new QuotaChecker(Log, Clock), Log, Notifier, text, Clock, NullLogger<PostSender>.Instance);
         Watcher = new ProcessingWatcher(Posts, Accounts, directory, renewer, Notifier, text, Clock, NullLogger<ProcessingWatcher>.Instance);
-        Scheduler = new PostScheduler(Posts, Sender, Watcher, Notifier, text, Clock, NullLogger<PostScheduler>.Instance);
+        Failing = new FailingPostStore(Posts);
+        Scheduler = new PostScheduler(Failing, Sender, OldVersion, Watcher, Notifier, text, Clock, NullLogger<PostScheduler>.Instance);
         Decisions = new PostDecisions(Posts, Clock, NullLogger<PostDecisions>.Instance);
     }
 
     public FakeTimeProvider Clock { get; }
 
     public PostStore Posts { get; }
+
+    /// <summary>The store the scheduler uses: <see cref="Posts"/> with database errors on demand.</summary>
+    public FailingPostStore Failing { get; }
 
     public AccountStore Accounts { get; }
 
@@ -45,6 +49,8 @@ internal sealed class SchedulerHarness : IDisposable
     public PublishLogStore Log { get; }
 
     public RecordingNotifier Notifier { get; } = new();
+
+    public FakeOldVersion OldVersion { get; } = new();
 
     public CredentialRenewer Renewer { get; }
 

@@ -15,6 +15,12 @@ public static class SchedulerLimits
     /// <summary>The wait before a post whose claim failed twice in one run is tried again (never a fast loop).</summary>
     public static readonly TimeSpan ClaimRetry = TimeSpan.FromMinutes(1);
 
+    /// <summary>
+    /// How long a stop "only when idle" (the window's Stop or Restore) waits for a run that is reading or claiming the schedule to end; a run
+    /// that is still sending after this answers "busy".
+    /// </summary>
+    public static readonly TimeSpan IdleStopWait = TimeSpan.FromSeconds(2);
+
     /// <summary>After waking from sleep, the wait before due posts are sent (Wi-Fi usually reconnects within a few seconds).</summary>
     public static readonly TimeSpan ResumeSettle = TimeSpan.FromSeconds(10);
 
