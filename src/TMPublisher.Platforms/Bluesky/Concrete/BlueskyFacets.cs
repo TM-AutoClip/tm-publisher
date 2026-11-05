@@ -18,7 +18,7 @@ public static partial class BlueskyFacets
         foreach (Match m in Link().Matches(text))
         {
             var url = m.Value.TrimEnd('.', ',', ')', '!', '?', ':', ';');
-            facets.Add(Facet(text, m.Index, url.Length, new JsonObject { ["$type"] = "app.bsky.richtext.facet#link", ["uri"] = url }));
+            facets.Add((JsonNode)Facet(text, m.Index, url.Length, new JsonObject { ["$type"] = "app.bsky.richtext.facet#link", ["uri"] = url }));
         }
 
         foreach (Match m in Tag().Matches(text))
@@ -29,7 +29,7 @@ public static partial class BlueskyFacets
                 continue;
             }
 
-            facets.Add(Facet(text, m.Groups[1].Index - 1, tag.Length + 1, new JsonObject { ["$type"] = "app.bsky.richtext.facet#tag", ["tag"] = tag }));
+            facets.Add((JsonNode)Facet(text, m.Groups[1].Index - 1, tag.Length + 1, new JsonObject { ["$type"] = "app.bsky.richtext.facet#tag", ["tag"] = tag }));
         }
 
         return facets;

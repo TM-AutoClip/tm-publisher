@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Accounts;
@@ -35,7 +34,7 @@ public sealed class TelegramPublisher(HttpTransport transport, ILogger<TelegramP
         if (post.Media.Count == 0)
         {
             method = "sendMessage";
-            result = await CallAsync(api, method, () => JsonContent.Create(new JsonObject { ["chat_id"] = chat, ["text"] = text }), cancellationToken).ConfigureAwait(false);
+            result = await CallAsync(api, method, () => PlatformHttp.JsonBody(new JsonObject { ["chat_id"] = chat, ["text"] = text }), cancellationToken).ConfigureAwait(false);
         }
         else if (post.Media.Count == 1)
         {
@@ -74,7 +73,7 @@ public sealed class TelegramPublisher(HttpTransport transport, ILogger<TelegramP
                         item["caption"] = text;
                     }
 
-                    items.Add(item);
+                    items.Add((JsonNode)item);
                     form.Add(FilePart(post.Media[i].Path), name, Path.GetFileName(post.Media[i].Path));
                 }
 

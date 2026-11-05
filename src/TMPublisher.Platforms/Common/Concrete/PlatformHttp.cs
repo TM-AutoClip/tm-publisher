@@ -47,13 +47,20 @@ public sealed class PlatformHttp(HttpClient client)
         return Checked(what, await SendAsync(request, cancellationToken).ConfigureAwait(false));
     }
 
+    /// <summary>A JSON request body (<c>application/json; charset=utf-8</c>), written without reflection.</summary>
+    public static StringContent JsonBody(JsonNode body)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        return new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+    }
+
     /// <summary>JSON POST with an optional bearer token; JSON body or an exception.</summary>
     public async Task<JsonNode?> PostJsonAsync(string what, string address, JsonNode body, string? bearer, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(body);
         using var request = new HttpRequestMessage(HttpMethod.Post, address)
         {
-            Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
+            Content = JsonBody(body),
         };
         if (bearer is not null)
         {

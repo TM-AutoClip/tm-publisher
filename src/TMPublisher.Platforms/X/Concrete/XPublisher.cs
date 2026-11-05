@@ -52,7 +52,7 @@ public sealed class XPublisher(HttpTransport transport, ILogger<XPublisher> logg
         var ids = new JsonArray();
         for (var i = 0; i < post.Media.Count; i++)
         {
-            ids.Add(await UploadAsync(post.Media[i], session, cancellationToken).ConfigureAwait(false));
+            ids.Add((JsonNode?)JsonValue.Create(await UploadAsync(post.Media[i], session, cancellationToken).ConfigureAwait(false)));
             progress?.Report(0.1 + (0.75 * (i + 1) / post.Media.Count));
         }
 

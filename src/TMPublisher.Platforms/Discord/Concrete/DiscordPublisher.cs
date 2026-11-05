@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Accounts;
@@ -33,7 +32,7 @@ public sealed class DiscordPublisher(HttpTransport transport, ILogger<DiscordPub
         {
             if (post.Media.Count == 0)
             {
-                return JsonContent.Create(payload);
+                return PlatformHttp.JsonBody(payload);
             }
 
             var form = new MultipartFormDataContent { { new StringContent(payload.ToJsonString(), System.Text.Encoding.UTF8, "application/json"), "payload_json" } };

@@ -119,7 +119,7 @@ public sealed class LinkedInPublisher(HttpTransport transport, ILogger<LinkedInP
                 var bytes = new byte[last - first + 1];
                 stream.Position = first;
                 await stream.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
-                etags.Add(await PutAsync(JsonSafe.Str(instruction, "uploadUrl"), bytes, session, "video upload", cancellationToken).ConfigureAwait(false));
+                etags.Add((JsonNode?)JsonValue.Create(await PutAsync(JsonSafe.Str(instruction, "uploadUrl"), bytes, session, "video upload", cancellationToken).ConfigureAwait(false)));
             }
         }
 
