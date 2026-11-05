@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+             xmlns:a="using:TMPublisher.Core.Accounts"
+             xmlns:l="using:TMPublisher.Desktop.Localization"
+             x:Class="TMPublisher.Desktop.Views.GroupsView"
+             x:DataType="vm:GroupsViewModel">
+  <Grid Margin="28" ColumnDefinitions="260,*" ColumnSpacing="20" RowDefinitions="Auto,*">
+    <StackPanel Grid.ColumnSpan="2" Spacing="8" Margin="0,0,0,16">
+      <TextBlock Text="{l:Tr nav.groups}" Classes="h1" />
+      <TextBlock Text="{l:Tr groups.intro}" Classes="muted" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Status}" Classes="ok" />
+    </StackPanel>
+    <DockPanel Grid.Row="1">
+      <Button DockPanel.Dock="Top" Content="{l:Tr groups.new}" Command="{Binding NewCommand}" Margin="0,0,0,8" />
+      <ListBox ItemsSource="{Binding Groups}" SelectedItem="{Binding Selected}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="a:Group">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+    <Border Grid.Row="1" Grid.Column="1" Classes="card">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="8">
+          <TextBox Text="{Binding Name}" PlaceholderText="{l:Tr groups.name}" />
+          <TextBlock Text="{l:Tr groups.order_hint}" Classes="small" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+          <Button Classes="accent" Content="{l:Tr common.save}" Command="{Binding SaveCommand}" />
+          <Button Classes="danger" Content="{l:Tr groups.delete}" Command="{Binding DeleteCommand}" />
+        </StackPanel>
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding Members}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GroupMemberViewModel">
+                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                  <CheckBox IsChecked="{Binding IsMember}" Content="{Binding Title}" />
+                  <Button Grid.Column="1" Content="▲" Command="{Binding $parent[UserControl].((vm:GroupsViewModel)DataContext).MoveUpCommand}" CommandParameter="{Binding}" />
+                  <Button Grid.Column="2" Content="▼" Command="{Binding $parent[UserControl].((vm:GroupsViewModel)DataContext).MoveDownCommand}" CommandParameter="{Binding}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+  </Grid>
+</UserControl>

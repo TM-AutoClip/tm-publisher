@@ -28,4 +28,7 @@ public interface IPlatform
 
     /// <summary>Publishes a post to one account.</summary>
     IPublisher Publisher { get; }
+
+    /// <summary>Refreshes tokens with the user's own app; <c>null</c> when the platform's tokens do not expire or cannot be refreshed.</summary>
+    ITokenRefresher? Refresher { get; }
 }

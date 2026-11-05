@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+             xmlns:l="using:TMPublisher.Desktop.Localization"
+             x:Class="TMPublisher.Desktop.Views.AccountsView"
+             x:DataType="vm:AccountsViewModel">
+  <DockPanel Margin="28">
+    <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,16">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{l:Tr nav.accounts}" Classes="h1" />
+        <Button Grid.Column="1" Classes="accent" Content="{l:Tr accounts.add}" Command="{Binding AddCommand}" />
+      </Grid>
+      <TextBlock Text="{l:Tr accounts.intro}" Classes="muted" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Status}" Classes="muted" />
+    </StackPanel>
+    <ScrollViewer>
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AccountRowViewModel">
+            <Border Classes="card" Margin="0,0,0,8">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                <Border Classes="badge" Background="{Binding Color}" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding PlatformName}" Foreground="White" FontWeight="SemiBold" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Handle}" Classes="small" />
+                  <TextBlock Text="{Binding StateText}" Classes.warning="{Binding NeedsReconnect}" Classes.small="{Binding !NeedsReconnect}" />
+                  <TextBlock Text="{Binding TestResult}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                  <Button Content="{l:Tr account.test}" Command="{Binding $parent[UserControl].((vm:AccountsViewModel)DataContext).TestCommand}" CommandParameter="{Binding}" />
+                  <Button Content="{l:Tr account.reconnect}" Command="{Binding $parent[UserControl].((vm:AccountsViewModel)DataContext).ReconnectCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="danger" Content="{l:Tr account.remove}" IsVisible="{Binding !ConfirmRemove}"
+                          Command="{Binding $parent[UserControl].((vm:AccountsViewModel)DataContext).RemoveCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="danger" Content="{l:Tr account.remove_confirm}" IsVisible="{Binding ConfirmRemove}"
+                          Command="{Binding $parent[UserControl].((vm:AccountsViewModel)DataContext).RemoveCommand}" CommandParameter="{Binding}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

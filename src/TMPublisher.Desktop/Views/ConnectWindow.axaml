@@ -1,0 +1,90 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+        xmlns:l="using:TMPublisher.Desktop.Localization"
+        x:Class="TMPublisher.Desktop.Views.ConnectWindow"
+        x:DataType="vm:ConnectViewModel"
+        Title="{l:Tr connect.title}"
+        Width="1040" Height="720" MinWidth="820" MinHeight="520"
+        WindowStartupLocation="CenterOwner">
+  <Grid ColumnDefinitions="*,420" Margin="20" ColumnSpacing="20">
+    <!-- Guide -->
+    <Border Classes="card">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="10">
+          <TextBlock Text="{l:Tr connect.title}" Classes="h1" />
+          <ComboBox ItemsSource="{Binding Platforms}" SelectedItem="{Binding Platform}" PlaceholderText="{l:Tr connect.choose_platform}" MinWidth="260">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:PlatformOption">
+                <TextBlock Text="{Binding Name}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <ItemsControl ItemsSource="{Binding Warnings}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <Border Background="{DynamicResource tm-accent-soft}" CornerRadius="{DynamicResource tm-radius-sm}" Padding="10,6" Margin="0,2">
+                  <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="{DynamicResource tm-warning}" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="{l:Tr connect.guide}" Classes="h2" Margin="0,6,0,0" />
+        </StackPanel>
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding Steps}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GuideStepViewModel">
+                <Grid ColumnDefinitions="Auto,*" Margin="0,4">
+                  <CheckBox IsChecked="{Binding IsDone}" VerticalAlignment="Top" />
+                  <StackPanel Grid.Column="1" Spacing="4">
+                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Button Content="{l:Tr connect.open_page}" IsVisible="{Binding HasLink}"
+                              Command="{Binding $parent[Window].((vm:ConnectViewModel)DataContext).OpenLinkCommand}" CommandParameter="{Binding}" />
+                      <Button Content="{l:Tr connect.copy}" IsVisible="{Binding HasCopy}"
+                              Command="{Binding $parent[Window].((vm:ConnectViewModel)DataContext).CopyCommand}" CommandParameter="{Binding}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- Inputs -->
+    <Border Grid.Column="1" Classes="card">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Spacing="10">
+          <StackPanel Spacing="6" IsVisible="{Binding PasteVisible}">
+            <TextBlock Text="{Binding PastePrompt}" TextWrapping="Wrap" Classes="warning" />
+            <TextBox Text="{Binding PasteValue}" />
+            <Button Classes="accent" Content="{l:Tr connect.continue}" Command="{Binding SubmitPasteCommand}" />
+          </StackPanel>
+          <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Classes.error="{Binding Failed}" Classes.ok="{Binding Succeeded}" />
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Classes="accent" Content="{l:Tr connect.connect}" Command="{Binding ConnectCommand}" IsEnabled="{Binding !Busy}" />
+            <Button Content="{l:Tr connect.cancel}" Command="{Binding CancelCommand}" IsVisible="{Binding Busy}" />
+            <Button Content="{l:Tr connect.close}" Name="CloseButton" />
+          </StackPanel>
+        </StackPanel>
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding Fields}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:FieldViewModel">
+                <StackPanel Spacing="4" Margin="0,0,0,10">
+                  <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                  <TextBox Text="{Binding Value}" IsReadOnly="{Binding IsReadOnly}" Classes.secret="{Binding IsSecret}" />
+                  <TextBlock Text="{Binding Hint}" Classes="small" TextWrapping="Wrap" IsVisible="{Binding HasHint}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>

@@ -23,6 +23,8 @@ internal sealed class TestPlatform(PlatformCapabilities capabilities, string cod
 
     public IPublisher Publisher => throw new NotSupportedException();
 
+    public ITokenRefresher? Refresher => null;
+
     public static PlatformCapabilities Caps(params PostKind[] kinds) => new()
     {
         Kinds = kinds.ToHashSet(),

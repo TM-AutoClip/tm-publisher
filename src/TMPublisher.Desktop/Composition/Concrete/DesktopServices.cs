@@ -2,6 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Accounts;
+using TMPublisher.Core.Platforms;
+using TMPublisher.Desktop.Accounts;
+using TMPublisher.Platforms.Common;
+using TMPublisher.Platforms.Connections;
+using TMPublisher.Scheduling.Accounts;
 using TMPublisher.Core.Localization;
 using TMPublisher.Core.Notifications;
 using TMPublisher.Core.Paths;
@@ -77,9 +82,22 @@ public static class DesktopServices
         services.AddSingleton<ShellViewModel>();
         services.AddTransient<FirstRunViewModel>();
         services.AddTransient<UnlockViewModel>();
+        services.AddSingleton<AccountService>();
+        services.AddTransient<ConnectViewModel>();
+        services.AddSingleton<Func<ConnectViewModel>>(s => s.GetRequiredService<ConnectViewModel>);
+        services.AddSingleton<PageViewModelBase, AccountsViewModel>();
+        services.AddSingleton<PageViewModelBase, GroupsViewModel>();
         services.AddSingleton<PageViewModelBase, SettingsViewModel>();
         services.AddSingleton(new ViewLocator()
+            .Register<AccountsViewModel, AccountsView>()
+            .Register<GroupsViewModel, GroupsView>()
             .Register<SettingsViewModel, SettingsView>());
+
+        // Platforms (one class each) and the services around them.
+        services.AddSingleton(HttpTransport.Network);
+        services.AddSingleton<ILoopbackListener, LoopbackListener>();
+        services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
+        services.AddSingleton<CredentialRenewer>();
         overrides?.Invoke(services);
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }
