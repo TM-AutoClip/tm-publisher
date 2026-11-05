@@ -19,6 +19,10 @@ public sealed class AppPaths : IAppPaths
     /// <inheritdoc />
     public string DataDirectory { get; }
 
+    /// <summary>Whether this is the default data folder (not one given with <c>--data-dir</c> or TMPUBLISHER_DATA_DIR).</summary>
+    public bool IsDefaultDirectory => string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(DataDirectory)),
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(DefaultDirectory())), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
     /// <inheritdoc />
     public string DatabaseFile => Path.Combine(DataDirectory, "publisher.db");
 

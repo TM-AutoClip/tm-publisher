@@ -17,13 +17,15 @@ namespace TMPublisher.Desktop.Startup;
 
 /// <summary>
 /// Startup flow: first run (language → new start or restore) · unlock (automatic keyring, or master password) · main window + tray +
-/// startup tasks. Closing the main window keeps the app running in the tray (minimizes on Linux, where a tray host is not guaranteed).
+/// startup tasks. Closing the main window keeps the app running in the tray (minimizes on Linux, where a tray host is not guaranteed);
+/// the app ends with Quit (tray menu or the sidebar) or when the operating system shuts down or logs off.
 /// </summary>
 public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer text, UiPreferencesFile preferences, AppSession session,
     WindowHost windows, TrayHost tray, IOsModule os, ILogger<AppStartup> logger)
 {
     private IClassicDesktopStyleApplicationLifetime? _desktop;
     private Window? _main;
+    private ShellViewModel? _shell;
     private bool _quitting;
 
     /// <summary>Runs the flow.</summary>
@@ -64,6 +66,20 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
 
         _main.Activate();
     });
+
+    /// <summary>
+    /// An exception that escaped a button or a window event (the UI dispatcher): logged with its cause and shown on the status line; the app
+    /// and its scheduler keep running instead of ending.
+    /// </summary>
+    public void ReportUnhandled(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        logger.LogError(exception, "Unhandled exception in the window ({Type}); the app keeps running", exception.GetType().Name);
+        if (_shell is not null)
+        {
+            _shell.Status = text.Format("error.unexpected", TMPublisher.Core.Security.Redactor.Redact(exception.Message));
+        }
+    }
 
     /// <summary>Ends the app.</summary>
     public void Quit()
@@ -144,11 +160,21 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         await session.LoadAsync(CancellationToken.None).ConfigureAwait(true);
         tray.Create(ShowMainWindow, Quit);
         var shell = services.GetRequiredService<ShellViewModel>();
+        _shell = shell;
         var window = new MainWindow { DataContext = shell, Icon = AppIcon() };
+        shell.QuitRequested += (_, _) => Quit();
         window.Closing += (_, e) =>
         {
             if (_quitting)
             {
+                return;
+            }
+
+            if (e.CloseReason is WindowCloseReason.OSShutdown or WindowCloseReason.ApplicationShutdown)
+            {
+                // Windows logoff / restart / update, or the app itself ending: never refuse it ("TM Publisher is preventing shutdown").
+                _quitting = true;
+                logger.LogInformation("Closing for {Reason}", e.CloseReason);
                 return;
             }
 

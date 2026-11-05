@@ -15,6 +15,12 @@
           <TextBlock Text="TM Publisher" Classes="h2" VerticalAlignment="Center" />
         </StackPanel>
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Classes="small" TextWrapping="Wrap" Margin="14" />
+        <Button DockPanel.Dock="Bottom" Classes="nav" Command="{Binding QuitCommand}" Margin="8,2">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="⏻" Width="20" TextAlignment="Center" />
+            <TextBlock Text="{l:Tr shell.quit}" />
+          </StackPanel>
+        </Button>
         <ItemsControl ItemsSource="{Binding Items}" Margin="8,0">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:NavItemViewModel">

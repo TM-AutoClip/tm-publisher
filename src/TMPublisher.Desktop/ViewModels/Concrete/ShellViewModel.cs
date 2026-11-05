@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Desktop.Localization;
 
@@ -34,6 +35,17 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>App-wide status line (startup problems).</summary>
     [ObservableProperty]
     public partial string Status { get; set; } = string.Empty;
+
+    /// <summary>The user chose Quit in the window (always there, also on desktops without a tray).</summary>
+    public event EventHandler? QuitRequested;
+
+    /// <summary>Ends the app.</summary>
+    [RelayCommand]
+    private void Quit()
+    {
+        _logger.LogInformation("Quit chosen in the main window");
+        QuitRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>Opens the first page.</summary>
     public Task StartAsync() => Items.Count > 0 ? NavigateAsync(Items[0].Page) : Task.CompletedTask;

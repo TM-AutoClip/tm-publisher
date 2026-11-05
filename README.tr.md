@@ -85,7 +85,8 @@ Sıradan bilgisayarlarda `linux-x64`, 64 bit ARM bilgisayarlarda (örneğin 64 b
 Notlar:
 
 - **Tepsi simgesi:** StatusNotifierItem / AppIndicator desteği ister. KDE, XFCE, Cinnamon ve çoğu panelde var; GNOME'da
-  "AppIndicator and KStatusNotifierItem Support" eklentisini kurun. Tepsi yoksa pencereyi kapatmak onu küçültür.
+  "AppIndicator and KStatusNotifierItem Support" eklentisini kurun. Linux'ta pencereyi kapatmak onu küçültür; yan menünün altındaki
+  **TM Publisher'dan çık** programı tepsi olsa da olmasa da kapatır.
 - **Otomatik başlatma:** program `~/.config/autostart/tm-publisher.desktop` dosyasını yazar (XDG autostart kuralına uyan
   masaüstleri oturum açılınca başlatır). Ayarlar'dan açıp kapatın.
 - Program açılmaz ve ICU'dan söz ederse dağıtımınızın `libicu` paketini kurun.
@@ -129,7 +130,8 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 ## Güncelleme
 
 1. İsteğe bağlı: **Ayarlar → Yedek**'ten yedek alın.
-2. TM Publisher'dan tepsi menüsüyle çıkın (**Çık**); pencereyi kapatmak yalnız gizler.
+2. TM Publisher'dan tepsi menüsüyle (**Çık**) ya da yan menünün altındaki **TM Publisher'dan çık** ile çıkın; pencereyi kapatmak
+   yalnız gizler.
 3. Program dosyasını yenisiyle değiştirin (aynı yer ve ad; otomatik başlatma çalışmaya devam eder). Linux'ta yeni arşivi eski
    klasörün üstüne açın ve `chmod +x`'i yeniden çalıştırın.
 4. Başlatın. Verileriniz yerinde kalır.
@@ -137,7 +139,7 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 ## Kaldırma
 
 1. **Ayarlar**'da **Bilgisayarımla birlikte başlasın**'ı kapatın (Windows'ta otomatik başlatma kaydını siler, Linux'ta devre dışı bırakır).
-2. Tepsi menüsünden çıkın.
+2. Tepsi menüsünden ya da yan menüdeki **TM Publisher'dan çık** ile çıkın.
 3. Program dosyasını (Windows) ya da `tm-publisher` klasörünü (Linux) silin; Linux'ta
    `~/.config/autostart/tm-publisher.desktop` dosyasını da silin.
 4. Verilerinizi de kaldırmak için aşağıdaki veri klasörünü silin. Bu geri alınamaz; gerekebilecekse önce yedek alın.
@@ -155,7 +157,8 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 anahtarı), `preferences.json` (yalnız arayüz dili), `logs/` (14 gün tutulur; asla anahtar ya da parola içermez). Medya
 dosyaları sizin tuttuğunuz yerde kalır; yalnız yolları saklanır.
 
-Başka bir klasör `--data-dir <klasör>` ya da `TMPUBLISHER_DATA_DIR` ortam değişkeniyle kullanılabilir. Program ilk açılışta
+Başka bir klasör `--data-dir <klasör>` ya da `TMPUBLISHER_DATA_DIR` ortam değişkeniyle kullanılabilir; otomatik başlatma kaydı bu
+klasörü korur. Program ilk açılışta
 yerel kitaplıklarını sistemin geçici klasörüne açar (standart .NET tek dosya davranışı).
 
 ## Bilinen kısıtlar

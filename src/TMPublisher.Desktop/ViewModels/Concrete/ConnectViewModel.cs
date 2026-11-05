@@ -189,9 +189,9 @@ public sealed partial class ConnectViewModel : ObservableObject, IConnectionProm
     [RelayCommand]
     private void OpenLink(GuideStepViewModel? step)
     {
-        if (step?.Link is { } link)
+        if (step?.Link is { } link && !_browser.TryOpen(link))
         {
-            _browser.Open(link);
+            Status = _text.Format("error.browser", link.AbsoluteUri);
         }
     }
 

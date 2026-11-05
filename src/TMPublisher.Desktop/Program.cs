@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Desktop.Composition;
@@ -34,6 +35,13 @@ internal static class Program
         logger.LogInformation("TM Publisher {Version} starting on {Os}", typeof(Program).Assembly.GetName().Version, Environment.OSVersion.Platform);
 
         instance.ShowRequested += (_, _) => services.GetRequiredService<Startup.AppStartup>().ShowMainWindow();
+
+        // A command that throws (browser launch, a database write) must not end the app and its scheduler: logged, shown, handled.
+        Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            services.GetRequiredService<Startup.AppStartup>().ReportUnhandled(e.Exception);
+            e.Handled = true;
+        };
         App.Services = services;
         App.StartHidden = options.Tray;
         try

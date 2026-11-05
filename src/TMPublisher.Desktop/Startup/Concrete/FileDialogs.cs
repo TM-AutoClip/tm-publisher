@@ -25,10 +25,17 @@ public sealed class FileDialogs(WindowHost host, Localizer text)
         {
             Title = text[titleKey],
             AllowMultiple = multiple,
-            FileTypeFilter = [new FilePickerFileType(text[filterKey]) { Patterns = [.. patterns] }],
+            FileTypeFilter = [new FilePickerFileType(text[filterKey]) { Patterns = AnyCase(patterns) }, new FilePickerFileType(text["filter.all_files"]) { Patterns = ["*"] }],
         }).ConfigureAwait(true);
         return files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList();
     }
+
+    /// <summary>
+    /// Each pattern also in capitals: Linux pickers (GTK, portals) match case-sensitively, so <c>*.mp4</c> alone hides VIDEO.MP4 from a phone.
+    /// Other mixes are reachable through the "All files" choice; what is picked is still checked by its extension.
+    /// </summary>
+    internal static IReadOnlyList<string> AnyCase(IReadOnlyList<string> patterns) =>
+        [.. patterns.SelectMany(p => new[] { p, p.ToUpperInvariant() }).Distinct(StringComparer.Ordinal)];
 
     /// <summary>Asks where to save; <c>null</c> when canceled. The extension is added when missing.</summary>
     public async Task<string?> SaveAsync(string titleKey, string suggestedName, string filterKey, string extension)

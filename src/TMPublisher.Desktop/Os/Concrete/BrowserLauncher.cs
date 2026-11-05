@@ -20,4 +20,18 @@ public sealed class BrowserLauncher(ILogger<BrowserLauncher> logger)
             throw;
         }
     }
+
+    /// <summary>Opens the address for a button; <c>false</c> (logged with the reason) when no browser could be started.</summary>
+    public bool TryOpen(Uri address)
+    {
+        try
+        {
+            Open(address);
+            return true;
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return false;
+        }
+    }
 }

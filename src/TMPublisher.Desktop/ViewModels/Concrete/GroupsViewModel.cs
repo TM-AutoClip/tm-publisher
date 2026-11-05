@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Accounts;
 using TMPublisher.Core.Platforms;
 using TMPublisher.Desktop.Localization;
@@ -8,8 +9,11 @@ using TMPublisher.Desktop.Localization;
 namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>Groups: a name and an ordered list of accounts. A post goes to a group or to accounts picked by hand; never to nobody.</summary>
-public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore accounts, IPlatformDirectory platforms, Localizer text) : PageViewModelBase
+public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore accounts, IPlatformDirectory platforms, Localizer text,
+    ILogger<GroupsViewModel> logger) : PageViewModelBase
 {
+    private int _loads;
+
     /// <inheritdoc />
     public override string TitleKey => "nav.groups";
 
@@ -52,7 +56,7 @@ public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore ac
     partial void OnSelectedChanged(Group? value)
     {
         Name = value?.Name ?? string.Empty;
-        _ = LoadMembersAsync(value);
+        _ = LoadSelectedMembersAsync(value);
     }
 
     /// <summary>Starts a new group.</summary>
@@ -84,7 +88,17 @@ public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore ac
         var group = Selected ?? new Group();
         group.Name = Name.Trim();
         group.AccountIds = members;
-        await groups.SaveAsync(group, CancellationToken.None).ConfigureAwait(true);
+        try
+        {
+            await groups.SaveAsync(group, CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Group could not be saved");
+            Status = text.Format("error.generic", ex.Message);
+            return;
+        }
+
         Status = text["groups.saved"];
         var id = group.Id;
         await ActivateAsync().ConfigureAwait(true);
@@ -97,7 +111,17 @@ public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore ac
     {
         if (Selected is { } group)
         {
-            await groups.DeleteAsync(group.Id, CancellationToken.None).ConfigureAwait(true);
+            try
+            {
+                await groups.DeleteAsync(group.Id, CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Group could not be deleted");
+                Status = text.Format("error.generic", ex.Message);
+                return;
+            }
+
             await ActivateAsync().ConfigureAwait(true);
         }
     }
@@ -122,9 +146,32 @@ public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore ac
         }
     }
 
+    private async Task LoadSelectedMembersAsync(Group? group)
+    {
+        try
+        {
+            await LoadMembersAsync(group).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Group members could not be loaded");
+            Status = text.Format("error.generic", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Fills the member list of <paramref name="group"/>. Selection changes start loads without waiting, so a load that finishes after a
+    /// newer one started is dropped: the list always belongs to the group shown, and Save never stores another group's members.
+    /// </summary>
     private async Task LoadMembersAsync(Group? group)
     {
+        var load = Interlocked.Increment(ref _loads);
         var all = await accounts.ListAsync(CancellationToken.None).ConfigureAwait(true);
+        if (load != Volatile.Read(ref _loads))
+        {
+            return;
+        }
+
         var order = group?.AccountIds ?? [];
         Members.Clear();
         foreach (var account in all.OrderBy(a => order.IndexOf(a.Id) is var i && i >= 0 ? i : int.MaxValue))

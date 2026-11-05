@@ -124,9 +124,9 @@ public sealed partial class HistoryViewModel(IPostStore posts, IAccountStore acc
     [RelayCommand]
     private void OpenLink(string? url)
     {
-        if (Uri.TryCreate(url, UriKind.Absolute, out var address) && address.Scheme == Uri.UriSchemeHttps)
+        if (Uri.TryCreate(url, UriKind.Absolute, out var address) && address.Scheme == Uri.UriSchemeHttps && !browser.TryOpen(address))
         {
-            browser.Open(address);
+            Status = text.Format("error.browser", address.AbsoluteUri);
         }
     }
 

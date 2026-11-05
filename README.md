@@ -83,7 +83,8 @@ desktop). A desktop session (X11, or Wayland with XWayland) is required.
 Notes:
 
 - **Tray icon:** needs StatusNotifierItem / AppIndicator support. KDE, XFCE, Cinnamon and most panels have it; on GNOME install
-  the "AppIndicator and KStatusNotifierItem Support" extension. Without a tray, closing the window minimizes it instead.
+  the "AppIndicator and KStatusNotifierItem Support" extension. On Linux closing the window minimizes it; **Quit TM Publisher**
+  at the bottom of the sidebar ends it, with or without a tray.
 - **Autostart:** the app writes `~/.config/autostart/tm-publisher.desktop` (desktops that follow the XDG autostart
   specification start it at sign-in). Turn it on or off in Settings.
 - If the program does not start and mentions ICU, install your distribution's `libicu` package.
@@ -126,7 +127,8 @@ you at once whether it worked.
 ## Update
 
 1. Optional: make a backup in **Settings → Backup**.
-2. Quit TM Publisher from its tray menu (**Quit**); closing the window only hides it.
+2. Quit TM Publisher from its tray menu (**Quit**) or with **Quit TM Publisher** at the bottom of the sidebar; closing the window
+   only hides it.
 3. Replace the program file with the new one (same place and name, so autostart keeps working). On Linux unpack the new
    archive over the old folder and run `chmod +x` again.
 4. Start it. Your data stays where it was.
@@ -134,7 +136,7 @@ you at once whether it worked.
 ## Uninstall
 
 1. In **Settings**, turn off **Start with my computer** (this removes the Windows autostart entry or disables the Linux one).
-2. Quit from the tray menu.
+2. Quit from the tray menu or with **Quit TM Publisher** in the sidebar.
 3. Delete the program file (Windows) or the `tm-publisher` folder (Linux), and on Linux
    `~/.config/autostart/tm-publisher.desktop`.
 4. To remove your data too, delete the data folder below. This cannot be undone; make a backup first if you may need it.
@@ -151,7 +153,8 @@ Inside: `publisher.db` (the encrypted database), `key.json` (the database key, s
 password), `preferences.json` (only the interface language), `logs/` (kept 14 days; never contain tokens or passwords).
 Media files stay where you keep them; only their paths are stored.
 
-Another folder can be used with `--data-dir <folder>` or the `TMPUBLISHER_DATA_DIR` environment variable. The program
+Another folder can be used with `--data-dir <folder>` or the `TMPUBLISHER_DATA_DIR` environment variable; the autostart entry keeps
+that folder. The program
 unpacks its native libraries to the system's temporary folder on first start (standard .NET single-file behavior).
 
 ## Known limits
