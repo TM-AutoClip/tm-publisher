@@ -25,6 +25,20 @@
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
+  <!--
+    SchedulerBuild=jit: for a target where Native AOT cannot be built here (linux-x64: native code for Linux is only made on Linux, and only
+    an arm64 Linux machine is at hand). Trimmed, ReadyToRun (precompiled, so little is compiled at run time), single file, tiered compilation
+    and dynamic PGO off (no second compilation of hot methods). The release notes give its measured memory next to the AOT build's.
+  -->
+  <PropertyGroup Condition="'$(SchedulerBuild)' == 'jit'">
+    <PublishAot>false</PublishAot>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <TieredCompilation>false</TieredCompilation>
+    <TieredPGO>false</TieredPGO>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
