@@ -148,7 +148,7 @@ public sealed class PostScheduler : IPostScheduler, IDisposable
             target.Status = TargetStatus.Canceled;
         }
 
-        post.Status = post.Targets.Any(IsSent) ? PostStatus.Done : PostStatus.Canceled;
+        post.Status = post.Targets.Any(PostEditing.IsSent) ? PostStatus.Done : PostStatus.Canceled;
     }, cancellationToken);
 
     /// <inheritdoc />
@@ -184,9 +184,6 @@ public sealed class PostScheduler : IPostScheduler, IDisposable
 
         _gate.Dispose();
     }
-
-    private static bool IsSent(PostTarget target) =>
-        target.Status is TargetStatus.Published or TargetStatus.Processing or TargetStatus.NeedsApproval;
 
     private static void ResetUnsent(Post post)
     {

@@ -18,6 +18,13 @@ public interface IPostStore
     /// <summary>Inserts or replaces the post and its targets.</summary>
     Task SaveAsync(Post post, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Saves a change the user made to a stored post, in one transaction: refused (<c>false</c>) when the stored post is no longer in one of
+    /// <paramref name="expectedStates"/> (the scheduler sent it meanwhile); targets already sent, skipped or canceled are kept as stored
+    /// (<see cref="PostEditing.KeepFinished"/>). A post that is not stored yet is inserted.
+    /// </summary>
+    Task<bool> SaveEditAsync(Post post, IReadOnlyCollection<PostStatus> expectedStates, CancellationToken cancellationToken);
+
     /// <summary>Updates one target (status, ids, message).</summary>
     Task SaveTargetAsync(PostTarget target, CancellationToken cancellationToken);
 

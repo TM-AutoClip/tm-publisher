@@ -249,6 +249,8 @@
   "compose.no_targets": "En az bir hesap ya da bir grup seçin.",
   "compose.blocked": "Bazı hesaplar bu gönderiyi bu haliyle alamaz; düzeltin ya da işaretlerini kaldırın.",
   "compose.empty": "Gönderi boş.",
+  "compose.editing_partly_sent": "Bazı hesaplarda bu gönderi zaten var; onlar olduğu gibi kalır, yeniden gönderilmez. Yalnız diğer hesaplara gönderilir.",
+  "compose.changed_meanwhile": "Siz düzenlerken bu gönderi gönderildi ya da değişti, bu yüzden değişiklikleriniz kaydedilmedi. Takvimden yeniden açın ya da geçmişe bakın.",
   "compose.saved_draft": "Taslak olarak kaydedildi.",
   "compose.scheduled": "{0} için planlandı.",
   "compose.sending": "Şimdi gönderiliyor; bildirim gelecek.",

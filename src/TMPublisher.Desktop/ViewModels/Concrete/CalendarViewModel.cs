@@ -124,7 +124,16 @@ public sealed partial class CalendarViewModel(IPostStore posts, IAccountStore ac
             {
                 post.ScheduledAtUtc = at;
                 post.UpdatedAtUtc = clock.GetUtcNow();
-                await posts.SaveAsync(post, CancellationToken.None).ConfigureAwait(true);
+
+                // Saved only if the scheduler has not started sending it since it was read; sent targets stay as they are.
+                if (!await posts.SaveEditAsync(post, [post.Status], CancellationToken.None).ConfigureAwait(true))
+                {
+                    logger.LogWarning("Post {PostId} changed while it was being moved; not moved", post.Id);
+                    Status = text["calendar.cannot_move"];
+                    await LoadAsync().ConfigureAwait(true);
+                    return false;
+                }
+
                 scheduler.Wake();
             }
 

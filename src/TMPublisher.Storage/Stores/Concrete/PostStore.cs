@@ -61,16 +61,45 @@ public sealed class PostStore(IDbContextFactory<PublisherDbContext> factory, Tim
 
         await using var db = await factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
-        await db.Targets.Where(t => t.PostId == post.Id).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
-        var exists = await db.Posts.AnyAsync(p => p.Id == post.Id, cancellationToken).ConfigureAwait(false);
-        db.Entry(post).State = exists ? EntityState.Modified : EntityState.Added;
-        foreach (var target in post.Targets)
+        await WriteAsync(db, post, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> SaveEditAsync(Post post, IReadOnlyCollection<PostStatus> expectedStates, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        ArgumentNullException.ThrowIfNull(expectedStates);
+        await using var db = await factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+
+        // SQLite takes the write lock at BEGIN (immediate), so the scheduler cannot change the post between this check and the write.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        var stored = await db.Posts.AsNoTracking().Include(p => p.Targets).FirstOrDefaultAsync(p => p.Id == post.Id, cancellationToken).ConfigureAwait(false);
+        if (stored is not null)
         {
-            db.Entry(target).State = EntityState.Added;
+            if (!expectedStates.Contains(stored.Status))
+            {
+                return false;
+            }
+
+            post.Targets = PostEditing.KeepFinished(post.Targets, stored.Targets.OrderBy(t => t.Order).ToList());
+            post.CreatedAtUtc = stored.CreatedAtUtc;
         }
 
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        post.UpdatedAtUtc = clock.GetUtcNow();
+        if (post.CreatedAtUtc == default)
+        {
+            post.CreatedAtUtc = post.UpdatedAtUtc;
+        }
+
+        foreach (var target in post.Targets)
+        {
+            target.PostId = post.Id;
+        }
+
+        await WriteAsync(db, post, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     /// <inheritdoc />
@@ -88,6 +117,19 @@ public sealed class PostStore(IDbContextFactory<PublisherDbContext> factory, Tim
         await using var db = await factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
         await db.Targets.Where(t => t.PostId == id).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
         await db.Posts.Where(p => p.Id == id).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task WriteAsync(PublisherDbContext db, Post post, CancellationToken cancellationToken)
+    {
+        await db.Targets.Where(t => t.PostId == post.Id).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        var exists = await db.Posts.AnyAsync(p => p.Id == post.Id, cancellationToken).ConfigureAwait(false);
+        db.Entry(post).State = exists ? EntityState.Modified : EntityState.Added;
+        foreach (var target in post.Targets)
+        {
+            db.Entry(target).State = EntityState.Added;
+        }
+
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static Post? Ordered(Post? post)

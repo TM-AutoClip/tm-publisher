@@ -249,6 +249,8 @@
   "compose.no_targets": "Choose at least one account or a group.",
   "compose.blocked": "Some accounts cannot take this post as it is; fix it or untick them.",
   "compose.empty": "The post is empty.",
+  "compose.editing_partly_sent": "Some accounts already have this post; they keep it as it is and get nothing new. Only the other accounts are sent.",
+  "compose.changed_meanwhile": "This post was sent or changed while you were editing it, so your changes were not saved. Open it again from the calendar or see the history.",
   "compose.saved_draft": "Saved as a draft.",
   "compose.scheduled": "Scheduled for {0}.",
   "compose.sending": "Sending now; you will get a notification.",

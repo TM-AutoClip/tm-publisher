@@ -163,6 +163,9 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
             }
 
             SelectedGroup = Groups.FirstOrDefault(g => g.Group is not null && g.Group.Id == post.GroupId) ?? Groups[0];
+
+            // Which accounts can take the post depends on its files: known before ticking, or a video-only account could not be ticked.
+            UpdateSupport();
             var ids = post.Targets.Select(t => t.AccountId).ToHashSet();
             foreach (var pick in Accounts)
             {
@@ -182,15 +185,30 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
         }
 
         Refresh();
-        foreach (var target in Targets)
+
+        // Restoring a target's options raises its change callback (Refresh); while _refreshing is set the callback does nothing, so the list
+        // is not rebuilt while it is being read. One Refresh afterwards composes every target with the restored options.
+        _refreshing = true;
+        try
         {
-            if (post.Targets.FirstOrDefault(t => t.AccountId == target.Account.Id) is { } stored)
+            foreach (var target in Targets)
             {
-                target.Restore(stored);
+                if (post.Targets.FirstOrDefault(t => t.AccountId == target.Account.Id) is { } stored)
+                {
+                    target.Restore(stored);
+                }
             }
+        }
+        finally
+        {
+            _refreshing = false;
         }
 
         Refresh();
+        if (post.Targets.Any(PostEditing.IsFinished))
+        {
+            Status = text["compose.editing_partly_sent"];
+        }
     }
 
     /// <summary>Recomputes the kind, the account filter, the targets and every preview.</summary>
@@ -204,13 +222,9 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
         _refreshing = true;
         try
         {
-            Kind = MediaFiles.KindOf(Media);
-            KindText = text["kind." + Kind.ToString().ToLowerInvariant()];
+            UpdateSupport();
             foreach (var pick in Accounts)
             {
-                var caps = pick.Platform.Capabilities;
-                pick.IsSupported = caps.Kinds.Contains(Kind);
-                pick.Reason = pick.IsSupported ? string.Empty : text.Format(caps.UnsupportedReasons.GetValueOrDefault(Kind, "problem.kind_unsupported"), pick.Platform.DisplayName);
                 if (SelectedGroup?.Group is { } group)
                 {
                     pick.Set(pick.IsSupported && group.AccountIds.Contains(pick.Account.Id));
@@ -235,6 +249,19 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
         finally
         {
             _refreshing = false;
+        }
+    }
+
+    /// <summary>The kind of post from the files, and which accounts can take it (with the reason when not).</summary>
+    private void UpdateSupport()
+    {
+        Kind = MediaFiles.KindOf(Media);
+        KindText = text["kind." + Kind.ToString().ToLowerInvariant()];
+        foreach (var pick in Accounts)
+        {
+            var caps = pick.Platform.Capabilities;
+            pick.IsSupported = caps.Kinds.Contains(Kind);
+            pick.Reason = pick.IsSupported ? string.Empty : text.Format(caps.UnsupportedReasons.GetValueOrDefault(Kind, "problem.kind_unsupported"), pick.Platform.DisplayName);
         }
     }
 
@@ -381,12 +408,28 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
             ticked = [.. ticked.OrderBy(a => group.AccountIds.IndexOf(a.Account.Id))];
         }
 
-        var existing = Targets.ToDictionary(t => t.Account.Id);
-        Targets.Clear();
-        foreach (var pick in ticked)
+        // Never Clear: a card's text box would leave the screen (and lose the focus) on every key press. Only what changed is touched.
+        var wanted = ticked.Select(pick => Targets.FirstOrDefault(t => t.Account.Id == pick.Account.Id) ?? new ComposeTargetViewModel(pick.Account, pick.Platform,
+            _defaultTags.GetValueOrDefault(pick.Platform.Code, string.Empty), !session.Settings.TikTokDraftByDefault, text, Refresh)).ToList();
+        for (var i = Targets.Count - 1; i >= 0; i--)
         {
-            Targets.Add(existing.GetValueOrDefault(pick.Account.Id) ?? new ComposeTargetViewModel(pick.Account, pick.Platform,
-                _defaultTags.GetValueOrDefault(pick.Platform.Code, string.Empty), !session.Settings.TikTokDraftByDefault, text, Refresh));
+            if (!wanted.Contains(Targets[i]))
+            {
+                Targets.RemoveAt(i);
+            }
+        }
+
+        for (var i = 0; i < wanted.Count; i++)
+        {
+            var at = Targets.IndexOf(wanted[i]);
+            if (at < 0)
+            {
+                Targets.Insert(i, wanted[i]);
+            }
+            else if (at != i)
+            {
+                Targets.Move(at, i);
+            }
         }
     }
 
@@ -432,10 +475,9 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
         }
 
         var now = clock.GetUtcNow();
-        var existing = _editing is { } id ? await posts.GetAsync(id, CancellationToken.None).ConfigureAwait(true) : null;
         var post = Draft();
-        post.Id = existing?.Id ?? Guid.NewGuid();
-        post.CreatedAtUtc = existing?.CreatedAtUtc ?? now;
+        post.Id = _editing ?? Guid.NewGuid();
+        post.CreatedAtUtc = now;
         post.UpdatedAtUtc = now;
         post.Status = status;
         post.ScheduledAtUtc = at;
@@ -448,7 +490,29 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
             target.Status = TargetStatus.Pending;
             return target;
         })];
-        await posts.SaveAsync(post, CancellationToken.None).ConfigureAwait(true);
+        try
+        {
+            if (_editing is not null)
+            {
+                if (!await posts.SaveEditAsync(post, PostEditing.EditableStates, CancellationToken.None).ConfigureAwait(true))
+                {
+                    logger.LogWarning("Post {PostId} was sent or changed while it was being edited; the edit was not saved", post.Id);
+                    Status = text["compose.changed_meanwhile"];
+                    return;
+                }
+            }
+            else
+            {
+                await posts.SaveAsync(post, CancellationToken.None).ConfigureAwait(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Post {PostId} could not be stored", post.Id);
+            Status = text.Format("error.generic", ex.Message);
+            return;
+        }
+
         logger.LogInformation("Post {PostId} stored as {Status} with {Targets} targets", post.Id, status, post.Targets.Count);
         scheduler.Wake();
         var when = at is { } time ? TimeZoneInfo.ConvertTime(time, clock.LocalTimeZone).ToString("g", text.Culture) : string.Empty;
