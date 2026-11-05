@@ -47,7 +47,7 @@ Windows 10 ya da 11, 64 bit.
 1. [Son sürüm](../../releases/latest) sayfasını açın ve `TMPublisher-<sürüm>-win-x64.exe` dosyasını indirin.
 2. İsteğe bağlı ama önerilir: dosyayı sürüm sayfasındaki SHA-256 değeriyle karşılaştırın. PowerShell'de:
    ```powershell
-   Get-FileHash .\TMPublisher-0.1.1-win-x64.exe -Algorithm SHA256
+   Get-FileHash .\TMPublisher-0.1.2-win-x64.exe -Algorithm SHA256
    ```
 3. Dosyayı kalacağı bir yere koyun, örneğin `%LOCALAPPDATA%\Programs\TM Publisher\TMPublisher.exe`. Otomatik başlatma bu
    yola bakar; yeri ilk açılıştan önce seçin.
@@ -65,12 +65,12 @@ Sıradan bilgisayarlarda `linux-x64`, 64 bit ARM bilgisayarlarda (örneğin 64 b
 1. [Son sürüm](../../releases/latest) sayfasından `tm-publisher-<sürüm>-linux-x64.tar.gz` (ya da `-linux-arm64`) dosyasını indirin.
 2. İsteğe bağlı: SHA-256 değerini denetleyin:
    ```sh
-   sha256sum tm-publisher-0.1.1-linux-x64.tar.gz
+   sha256sum tm-publisher-0.1.2-linux-x64.tar.gz
    ```
 3. Kalacağı yere açın ve çalıştırma izni verin:
    ```sh
    mkdir -p ~/.local/opt
-   tar -xzf tm-publisher-0.1.1-linux-x64.tar.gz -C ~/.local/opt
+   tar -xzf tm-publisher-0.1.2-linux-x64.tar.gz -C ~/.local/opt
    chmod +x ~/.local/opt/tm-publisher/tm-publisher
    ```
 4. **Anahtarlık (önerilir).** Veritabanının oturum açınca kendiliğinden açılması için TM Publisher anahtarını masaüstü

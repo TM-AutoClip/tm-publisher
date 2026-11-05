@@ -45,7 +45,7 @@ Windows 10 or 11, 64-bit.
 1. Open the [latest release](../../releases/latest) and download `TMPublisher-<version>-win-x64.exe`.
 2. Optional but recommended: check the file against the SHA-256 value on the release page. In PowerShell:
    ```powershell
-   Get-FileHash .\TMPublisher-0.1.1-win-x64.exe -Algorithm SHA256
+   Get-FileHash .\TMPublisher-0.1.2-win-x64.exe -Algorithm SHA256
    ```
 3. Put the file where it can stay, for example `%LOCALAPPDATA%\Programs\TM Publisher\TMPublisher.exe`. Autostart points to
    this exact path, so choose the place before the first start.
@@ -63,12 +63,12 @@ desktop). A desktop session (X11, or Wayland with XWayland) is required.
 1. Download `tm-publisher-<version>-linux-x64.tar.gz` (or `-linux-arm64`) from the [latest release](../../releases/latest).
 2. Optional: check the SHA-256 value:
    ```sh
-   sha256sum tm-publisher-0.1.1-linux-x64.tar.gz
+   sha256sum tm-publisher-0.1.2-linux-x64.tar.gz
    ```
 3. Unpack it where it can stay and allow it to run:
    ```sh
    mkdir -p ~/.local/opt
-   tar -xzf tm-publisher-0.1.1-linux-x64.tar.gz -C ~/.local/opt
+   tar -xzf tm-publisher-0.1.2-linux-x64.tar.gz -C ~/.local/opt
    chmod +x ~/.local/opt/tm-publisher/tm-publisher
    ```
 4. **Keyring (recommended).** To open the database automatically when you sign in, TM Publisher stores its key in your
