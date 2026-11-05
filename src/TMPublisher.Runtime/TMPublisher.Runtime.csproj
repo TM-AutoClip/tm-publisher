@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    What both processes need: the data folder, the log files, the language files, the instance lock and the local channel between the
+    window and the background scheduler. No UI library. Depends on Core only. Safe for trimming and native (AOT) compilation.
+  -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TMPublisher.Core\TMPublisher.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Language files are embedded (WithCulture=false: the .en/.tr suffix is not a satellite culture). -->
+    <EmbeddedResource Include="Lang\*.json" LogicalName="TMPublisher.Lang.%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="TMPublisher.Tests" />
+  </ItemGroup>
+</Project>

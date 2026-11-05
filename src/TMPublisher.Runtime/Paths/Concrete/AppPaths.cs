@@ -1,6 +1,6 @@
 using TMPublisher.Core.Paths;
 
-namespace TMPublisher.Desktop.Paths;
+namespace TMPublisher.Runtime.Paths;
 
 /// <summary>
 /// Data folder: the given folder, otherwise %LOCALAPPDATA%\TMPublisher on Windows and $XDG_DATA_HOME/tm-publisher

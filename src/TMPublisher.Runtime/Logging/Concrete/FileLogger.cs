@@ -2,7 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Security;
 
-namespace TMPublisher.Desktop.Logging;
+namespace TMPublisher.Runtime.Logging;
 
 /// <summary>One category of <see cref="FileLoggerProvider"/>.</summary>
 internal sealed class FileLogger(string category, FileLoggerProvider provider) : ILogger
