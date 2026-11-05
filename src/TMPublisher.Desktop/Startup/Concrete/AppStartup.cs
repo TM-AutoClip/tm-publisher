@@ -11,8 +11,7 @@ using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
 using TMPublisher.Desktop.ViewModels;
 using TMPublisher.Desktop.Views;
-using TMPublisher.Runtime.Instance;
-using TMPublisher.Runtime.Paths;
+using TMPublisher.Core.Instance;
 using TMPublisher.Storage.Keys;
 
 namespace TMPublisher.Desktop.Startup;
@@ -23,7 +22,7 @@ namespace TMPublisher.Desktop.Startup;
 /// window ends the window program; the background scheduler keeps sending posts.
 /// </summary>
 public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer text, UiPreferencesFile preferences, AppSession session,
-    WindowHost windows, MainWindowHost main, IAutostart autostart, AppPaths paths, ILogger<AppStartup> logger)
+    WindowHost windows, MainWindowHost main, IAutostart autostart, IOldVersionCheck oldVersion, ILogger<AppStartup> logger)
 {
     private IClassicDesktopStyleApplicationLifetime? _desktop;
     private ShellViewModel? _shell;
@@ -162,8 +161,9 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         main.Show();
         await shell.StartAsync().ConfigureAwait(true);
         RepairAutostart(shell);
-        if (InstanceLock.OldVersionRuns(paths.DataDirectory))
+        if (oldVersion.OldVersionRuns())
         {
+            // The scheduler is not started next to it (SchedulerSupervisor checks again); a running one claims nothing while it runs.
             logger.LogError("An older TM Publisher (0.1.0-0.1.2) runs on the same data; the background scheduler does not start next to it");
             shell.Status = text["scheduler.old_version"];
         }

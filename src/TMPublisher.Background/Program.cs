@@ -15,7 +15,9 @@ internal static class Program
     /// <summary>
     /// Arguments: <c>--data-dir &lt;folder&gt;</c> (or the environment variable <c>TMPUBLISHER_DATA_DIR</c>). Exactly one scheduler runs per
     /// data folder (<c>scheduler-instance.lock</c>): a second start ends at once. Exit codes: 0 normal end or already running, 2 an old TM Publisher
-    /// (0.1.0–0.1.2, which sent posts from its own window) runs on the same data, 1 an error (in the log).
+    /// (0.1.0–0.1.2, which sent posts from its own window) runs on the same data, 1 an error (in the log). On Windows the old version's
+    /// single-instance name is kept open for the whole run, so a 0.1.0–0.1.2 started later ends at once; on Linux every claim looks for it again
+    /// (<see cref="OldVersionGuard"/>).
     /// </summary>
     public static int Main(string[] args)
     {
@@ -35,7 +37,9 @@ internal static class Program
         TaskScheduler.UnobservedTaskException += (_, e) => logger.LogError(e.Exception, "Unobserved task exception");
         logger.LogInformation("TM Publisher scheduler {Version} starting on {Os}{Folder}", typeof(Program).Assembly.GetName().Version?.ToString(3),
             Environment.OSVersion.Platform, paths.IsDefaultDirectory ? string.Empty : " (own data folder)");
-        if (InstanceLock.OldVersionRuns(paths.DataDirectory))
+        var oldVersion = services.GetRequiredService<OldVersionGuard>();
+        using var oldName = oldVersion.HoldName();
+        if (oldVersion.OldVersionRuns())
         {
             logger.LogError("An older TM Publisher (0.1.0-0.1.2) is running on the same data and sends posts itself; quit it (tray: Quit) and start again. "
                 + "Two schedulers could send a post twice, so this one does not start.");

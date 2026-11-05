@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-
 namespace TMPublisher.Runtime.Instance;
 
 /// <summary>
@@ -39,23 +36,6 @@ public sealed class InstanceLock : IDisposable
             reason = ex.GetType().Name + ": " + ex.Message;
             return null;
         }
-    }
-
-    /// <summary>
-    /// Whether TM Publisher 0.1.0–0.1.2 runs for this data folder (it held a named mutex and sent posts from its own window process). The new
-    /// background scheduler does not start next to it: two schedulers on one database could send a post twice. On Linux the old mutex is only
-    /// visible in the same login session.
-    /// </summary>
-    public static bool OldVersionRuns(string dataDirectory)
-    {
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(dataDirectory).ToUpperInvariant())))[..16];
-        if (Mutex.TryOpenExisting("TMPublisher-" + hash, out var mutex))
-        {
-            mutex.Dispose();
-            return true;
-        }
-
-        return false;
     }
 
     /// <inheritdoc />

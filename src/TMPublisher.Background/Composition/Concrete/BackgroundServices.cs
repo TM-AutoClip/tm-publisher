@@ -6,6 +6,7 @@ using TMPublisher.Background.Localization;
 using TMPublisher.Background.Notifications;
 using TMPublisher.Background.Os;
 using TMPublisher.Core.Accounts;
+using TMPublisher.Core.Instance;
 using TMPublisher.Core.Localization;
 using TMPublisher.Core.Notifications;
 using TMPublisher.Core.Paths;
@@ -26,6 +27,7 @@ using TMPublisher.Platforms.Threads;
 using TMPublisher.Platforms.TikTok;
 using TMPublisher.Platforms.X;
 using TMPublisher.Platforms.YouTube;
+using TMPublisher.Runtime.Instance;
 using TMPublisher.Runtime.Logging;
 using TMPublisher.Runtime.Paths;
 using TMPublisher.Scheduling;
@@ -50,6 +52,10 @@ public static class BackgroundServices
         services.AddLogging(b => b.AddProvider(new FileLoggerProvider(paths.LogDirectory, "scheduler")).SetMinimumLevel(LogLevel.Information));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(paths);
+
+        // An old TM Publisher (0.1.0-0.1.2) on the same data: the scheduler neither starts nor claims next to it.
+        services.AddSingleton<OldVersionGuard>();
+        services.AddSingleton<IOldVersionCheck>(s => s.GetRequiredService<OldVersionGuard>());
         services.AddSingleton<IAppPaths>(paths);
         services.AddSingleton<TextCatalog>();
         services.AddSingleton<ILocalizer>(s => s.GetRequiredService<TextCatalog>());

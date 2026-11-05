@@ -19,6 +19,7 @@ using TMPublisher.Platforms.YouTube;
 using TMPublisher.Platforms.Connections;
 using TMPublisher.Scheduling;
 using TMPublisher.Scheduling.Accounts;
+using TMPublisher.Core.Instance;
 using TMPublisher.Core.Localization;
 using TMPublisher.Core.Notifications;
 using TMPublisher.Core.Paths;
@@ -31,6 +32,7 @@ using TMPublisher.Desktop.Notifications;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
 using TMPublisher.Desktop.Scheduler;
+using TMPublisher.Runtime.Instance;
 using TMPublisher.Runtime.Logging;
 using TMPublisher.Runtime.Paths;
 using TMPublisher.Desktop.Startup;
@@ -61,6 +63,10 @@ public static class DesktopServices
         services.AddLogging(b => b.AddProvider(new FileLoggerProvider(paths.LogDirectory)).SetMinimumLevel(LogLevel.Information));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(paths);
+
+        // An old TM Publisher (0.1.0-0.1.2) on the same data: the scheduler neither starts nor claims next to it.
+        services.AddSingleton<OldVersionGuard>();
+        services.AddSingleton<IOldVersionCheck>(s => s.GetRequiredService<OldVersionGuard>());
         services.AddSingleton<IAppPaths>(paths);
         services.AddSingleton<UiPreferencesFile>();
         services.AddSingleton<Localizer>();
