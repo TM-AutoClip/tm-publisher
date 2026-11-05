@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Paths;
+using TMPublisher.Core.Posts;
 using TMPublisher.Desktop.Localization;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
@@ -14,7 +15,8 @@ namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>Settings: language, notifications, autostart, protection (keyring / master password), backup and restore, about.</summary>
 public sealed partial class SettingsViewModel(AppSession session, UiPreferencesFile preferences, IAutostart autostart, Vault vault, BackupService backup,
-    UiMasterPassword masterPassword, FileDialogs dialogs, IAppPaths paths, Localizer text, ILogger<SettingsViewModel> logger) : PageViewModelBase
+    UiMasterPassword masterPassword, FileDialogs dialogs, IAppPaths paths, IPostScheduler scheduler, Localizer text, ILogger<SettingsViewModel> logger)
+    : PageViewModelBase
 {
     /// <inheritdoc />
     public override string TitleKey => "nav.settings";
@@ -220,6 +222,9 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
         {
             var report = await backup.RestoreAsync(file, RestorePassword, vault.AutomaticProtector!, CancellationToken.None).ConfigureAwait(true);
             await session.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+
+            // The schedule, the follow-ups and the interrupted posts of the restored data are handled now, not at the next start.
+            await scheduler.ReloadAsync(CancellationToken.None).ConfigureAwait(true);
             RestorePassword = string.Empty;
             Status = report.MissingFiles.Count == 0
                 ? text.Format("restore.done", report.Accounts, report.Posts)

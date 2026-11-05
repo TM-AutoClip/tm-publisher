@@ -11,6 +11,12 @@ public interface IPostScheduler
     /// <summary>Re-reads the schedule (a post was saved, the computer woke up, the clock changed). No effect before the scheduler starts.</summary>
     void Wake();
 
+    /// <summary>
+    /// The database was replaced (restore): forgets the old timer and follow-ups, then does what a start does on the new data (posts left
+    /// "publishing" wait for the user, processing follow-ups resume, due posts are handled, the timer is set). No effect before the start.
+    /// </summary>
+    Task ReloadAsync(CancellationToken cancellationToken);
+
     /// <summary>Missed / blocked post: send it now.</summary>
     Task SendNowAsync(Guid postId, CancellationToken cancellationToken);
 

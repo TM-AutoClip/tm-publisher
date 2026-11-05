@@ -25,6 +25,7 @@ internal sealed class SchedulerHarness : IDisposable
         Log = new PublishLogStore(storage.Factory);
         var directory = new PlatformDirectory(platforms);
         var renewer = new CredentialRenewer(directory, Credentials, Accounts, Clock, NullLogger<CredentialRenewer>.Instance);
+        Renewer = renewer;
         var text = new KeyLocalizer();
         Sender = new PostSender(Posts, Accounts, Credentials, directory, renewer, new QuotaChecker(Log, Clock), Log, Notifier, text, Clock, NullLogger<PostSender>.Instance);
         Watcher = new ProcessingWatcher(Posts, Accounts, directory, renewer, Notifier, text, Clock, NullLogger<ProcessingWatcher>.Instance);
@@ -42,6 +43,8 @@ internal sealed class SchedulerHarness : IDisposable
     public PublishLogStore Log { get; }
 
     public RecordingNotifier Notifier { get; } = new();
+
+    public CredentialRenewer Renewer { get; }
 
     public PostSender Sender { get; }
 

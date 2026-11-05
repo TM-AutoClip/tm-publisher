@@ -53,7 +53,7 @@ public sealed class ProcessingWatcher(IPostStore posts, IAccountStore accounts, 
 
         var who = platform.DisplayName + " · " + account.DisplayName;
         var fresh = await renewer.GetFreshAsync(account, cancellationToken).ConfigureAwait(false);
-        var check = await platform.Publisher.CheckProcessingAsync(new PublishRequest(account, fresh, post, target, renewer.RenewFor(account)), id, cancellationToken)
+        var check = await platform.Publisher.CheckProcessingAsync(new PublishRequest(account, fresh, post, target, renewer.RenewFor(account, fresh)), id, cancellationToken)
             .ConfigureAwait(false);
         if (check.State == TargetStatus.Processing)
         {
@@ -70,6 +70,9 @@ public sealed class ProcessingWatcher(IPostStore posts, IAccountStore accounts, 
             : new AppNotification(NotificationKind.Published, text["notify.published"], who));
         return check.State;
     }
+
+    /// <summary>Forgets every follow-up (the database was replaced).</summary>
+    public void StopAll() => Dispose();
 
     /// <inheritdoc />
     public void Dispose()

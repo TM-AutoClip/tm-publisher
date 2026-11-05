@@ -42,6 +42,9 @@ public sealed class PostScheduler : IPostScheduler, IDisposable
     /// <inheritdoc />
     public event EventHandler? AttentionChanged;
 
+    /// <summary>Whether the computer has a network connection now (replaced in tests).</summary>
+    internal Func<bool> NetworkAvailable { get; set; } = System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable;
+
     /// <summary>When the timer is set to fire next (UTC); <c>null</c> when nothing is scheduled.</summary>
     public DateTimeOffset? NextWakeUtc { get; private set; }
 
@@ -50,6 +53,44 @@ public sealed class PostScheduler : IPostScheduler, IDisposable
     /// processing follow-ups resume, due posts are handled and the timer is set.
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        await RecoverAsync(cancellationToken).ConfigureAwait(false);
+        _started = true;
+        await RunDueAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task ReloadAsync(CancellationToken cancellationToken)
+    {
+        if (!_started)
+        {
+            return;
+        }
+
+        lock (_timerGate)
+        {
+            _timer?.Dispose();
+            _timer = null;
+            NextWakeUtc = null;
+        }
+
+        _watcher.StopAll();
+        _logger.LogInformation("The database was replaced; reading the schedule again");
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await RecoverAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        AttentionChanged?.Invoke(this, EventArgs.Empty);
+        await RunDueAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RecoverAsync(CancellationToken cancellationToken)
     {
         foreach (var post in await _posts.ListByStatusAsync([PostStatus.Publishing], cancellationToken).ConfigureAwait(false))
         {
@@ -65,8 +106,6 @@ public sealed class PostScheduler : IPostScheduler, IDisposable
         }
 
         await _watcher.ResumeAsync(cancellationToken).ConfigureAwait(false);
-        _started = true;
-        await RunDueAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -78,15 +117,50 @@ public sealed class PostScheduler : IPostScheduler, IDisposable
         }
     }
 
+    /// <summary>
+    /// The computer woke up: the due posts are sent once the network is back (a short settle wait, then at most
+    /// <see cref="SchedulerLimits.ResumeNetworkWait"/>), with their lateness measured from the moment of waking. Sending at once would fail
+    /// on a Wi-Fi that is still reconnecting and stop the post.
+    /// </summary>
+    public void WakeAfterResume()
+    {
+        if (_started)
+        {
+            _ = ResumeAsync(_clock.GetUtcNow());
+        }
+    }
+
     /// <summary>Handles everything that is due now and sets the timer (also what the timer runs).</summary>
-    public async Task RunDueAsync(CancellationToken cancellationToken)
+    public Task RunDueAsync(CancellationToken cancellationToken) => RunDueAsync(null, cancellationToken);
+
+    /// <summary>Waits after waking until the network is there (bounded), then handles the due posts.</summary>
+    internal async Task ResumeAsync(DateTimeOffset resumedAtUtc)
+    {
+        await Task.Delay(SchedulerLimits.ResumeSettle, _clock).ConfigureAwait(false);
+        var waited = SchedulerLimits.ResumeSettle;
+        while (!NetworkAvailable() && waited < SchedulerLimits.ResumeNetworkWait)
+        {
+            await Task.Delay(SchedulerLimits.ResumeNetworkCheck, _clock).ConfigureAwait(false);
+            waited += SchedulerLimits.ResumeNetworkCheck;
+        }
+
+        if (!NetworkAvailable())
+        {
+            _logger.LogWarning("No network connection {Waited} after waking up; handling the due posts anyway", waited);
+        }
+
+        await TickAsync(resumedAtUtc).ConfigureAwait(false);
+    }
+
+    private async Task RunDueAsync(DateTimeOffset? lateFromUtc, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         var missed = 0;
         var changed = false;
 
-        // Lateness is measured from the moment this run started: posts that fall due while an earlier post is uploading are sent, not "missed".
-        var runStart = _clock.GetUtcNow();
+        // Lateness is measured from the moment this run started (or the computer woke up): posts that fall due while an earlier post is
+        // uploading, or while the network reconnects after sleep, are sent, not "missed".
+        var runStart = lateFromUtc is { } from && from < _clock.GetUtcNow() ? from : _clock.GetUtcNow();
         try
         {
             while (await _posts.NextScheduledAsync(cancellationToken).ConfigureAwait(false) is { ScheduledAtUtc: { } at } post && at <= _clock.GetUtcNow())
@@ -246,11 +320,11 @@ public sealed class PostScheduler : IPostScheduler, IDisposable
         }
     }
 
-    private async Task TickAsync()
+    private async Task TickAsync(DateTimeOffset? lateFromUtc = null)
     {
         try
         {
-            await RunDueAsync(CancellationToken.None).ConfigureAwait(false);
+            await RunDueAsync(lateFromUtc, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

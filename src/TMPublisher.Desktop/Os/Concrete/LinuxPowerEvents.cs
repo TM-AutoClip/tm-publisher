@@ -5,20 +5,31 @@ using TMPublisher.Scheduling;
 namespace TMPublisher.Desktop.Os;
 
 /// <summary>
-/// Linux: logind's <c>PrepareForSleep(false)</c> signal on the system bus (sent when the computer wakes up). Without logind or the system
-/// bus (some containers) the scheduler still wakes at least once a day.
+/// Linux: logind's <c>PrepareForSleep(false)</c> signal on the system bus (sent when the computer wakes up) and wall-clock jumps
+/// (<see cref="LinuxClockChanges"/>). Without logind or the system bus (some containers) the scheduler still wakes at least once a day.
 /// </summary>
-public sealed class LinuxPowerEvents(ILogger<LinuxPowerEvents> logger) : IPowerEvents, IDisposable
+public sealed class LinuxPowerEvents(LinuxClockChanges clock, ILogger<LinuxPowerEvents> logger) : IPowerEvents, IDisposable
 {
     private DBusConnection? _connection;
     private IDisposable? _watch;
+    private bool _clockWatched;
 
     /// <inheritdoc />
     public event EventHandler? ScheduleStale;
 
     /// <inheritdoc />
+    public event EventHandler? Resumed;
+
+    /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        if (!_clockWatched)
+        {
+            _clockWatched = true;
+            clock.Changed += (_, _) => ScheduleStale?.Invoke(this, EventArgs.Empty);
+            clock.Start();
+        }
+
         if (_connection is not null || DBusAddress.System is not { Length: > 0 } address)
         {
             return;
@@ -59,8 +70,8 @@ public sealed class LinuxPowerEvents(ILogger<LinuxPowerEvents> logger) : IPowerE
 
         if (signal.HasValue && !signal.Value)
         {
-            logger.LogInformation("The computer woke up; checking the schedule");
-            ScheduleStale?.Invoke(this, EventArgs.Empty);
+            logger.LogInformation("The computer woke up; checking the schedule once the network is back");
+            Resumed?.Invoke(this, EventArgs.Empty);
         }
     }
 }

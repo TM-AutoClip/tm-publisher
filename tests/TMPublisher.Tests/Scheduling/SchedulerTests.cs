@@ -35,6 +35,78 @@ public sealed class SchedulerTests
     }
 
     [Fact]
+    public async Task TwoRefreshesAtOnceUseTheRotatedTokenOnce()
+    {
+        var platform = new ScriptedPlatform();
+        var refresher = new RotatingRefresher(platform.Code);
+        platform.Refresher = refresher;
+        using var h = await SchedulerHarness.CreateAsync(platform);
+        var account = await h.AccountAsync(platform.Code, "A");
+        await h.Credentials.SaveAsync(account.Id, Credentials.Empty.With((CredentialKeys.AccessToken, "t-A"), (CredentialKeys.RefreshToken, "r-0")), Ct);
+
+        var both = await Task.WhenAll(h.Renewer.GetFreshAsync(account, Ct), h.Renewer.GetFreshAsync(account, Ct));
+
+        refresher.Calls.ShouldBe(1);
+        both.Select(c => c[CredentialKeys.AccessToken]).ShouldBe(["fresh-1", "fresh-1"]);
+        (await h.Accounts.GetAsync(account.Id, Ct))!.State.ShouldBe(AccountState.Active);
+
+        // A renew after a 401 with a token another task already replaced uses the stored one instead of refreshing again.
+        var renew = h.Renewer.RenewFor(account, Credentials.Empty.With((CredentialKeys.AccessToken, "t-A")))!;
+        (await renew(Ct))[CredentialKeys.AccessToken].ShouldBe("fresh-1");
+        refresher.Calls.ShouldBe(1);
+        (await renew(Ct))[CredentialKeys.AccessToken].ShouldBe("fresh-2");
+    }
+
+    [Fact]
+    public async Task AfterWakingTheDuePostWaitsForTheNetworkAndIsNotMissed()
+    {
+        var platform = new ScriptedPlatform();
+        using var h = await SchedulerHarness.CreateAsync(platform);
+        var account = await h.AccountAsync(platform.Code, "A");
+        var post = await h.PostAsync(h.Clock.GetUtcNow().AddMinutes(-3), account);
+        h.Scheduler.NetworkAvailable = () => false;
+
+        // The Wi-Fi never comes back: after the bounded wait the post is sent anyway, and its lateness counts from the moment of waking.
+        var resumedAt = h.Clock.GetUtcNow();
+        var run = h.Scheduler.ResumeAsync(resumedAt);
+        h.Clock.Advance(TimeSpan.FromSeconds(5));
+        await Task.Delay(20, Ct);
+        platform.Sent.ShouldBeEmpty();
+        for (var i = 0; i < 1000 && !run.IsCompleted; i++)
+        {
+            h.Clock.Advance(TimeSpan.FromSeconds(1));
+            await Task.Delay(2, Ct);
+        }
+
+        await run;
+        (h.Clock.GetUtcNow() - post.ScheduledAtUtc!.Value).ShouldBeGreaterThan(SchedulerLimits.LateTolerance);
+        (await h.ReloadAsync(post)).Status.ShouldBe(PostStatus.Done);
+        platform.Sent.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ReloadArmsThePostsOfReplacedData()
+    {
+        var platform = new ScriptedPlatform();
+        using var h = await SchedulerHarness.CreateAsync(platform);
+        var account = await h.AccountAsync(platform.Code, "A");
+        await h.Scheduler.StartAsync(Ct);
+        h.Scheduler.NextWakeUtc.ShouldBeNull();
+
+        // As after a restore: the data now holds a scheduled post and one left "publishing" when the backup was taken.
+        var later = await h.PostAsync(h.Clock.GetUtcNow().AddHours(1), account);
+        var interrupted = await h.PostAsync(h.Clock.GetUtcNow().AddHours(-1), account);
+        interrupted.Status = PostStatus.Publishing;
+        interrupted.Targets[0].Status = TargetStatus.Publishing;
+        await h.Posts.SaveAsync(interrupted, Ct);
+
+        await h.Scheduler.ReloadAsync(Ct);
+
+        h.Scheduler.NextWakeUtc.ShouldBe(later.ScheduledAtUtc);
+        (await h.ReloadAsync(interrupted)).Status.ShouldBe(PostStatus.Stopped);
+    }
+
+    [Fact]
     public async Task LongWaitsAreCutInto24HourPieces()
     {
         var platform = new ScriptedPlatform();

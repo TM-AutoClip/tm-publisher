@@ -13,6 +13,9 @@ public sealed class WindowsPowerEvents(ILogger<WindowsPowerEvents> logger) : IPo
     public event EventHandler? ScheduleStale;
 
     /// <inheritdoc />
+    public event EventHandler? Resumed;
+
+    /// <inheritdoc />
     public Task StartAsync(CancellationToken cancellationToken)
     {
         if (!OperatingSystem.IsWindows() || _listening)
@@ -42,8 +45,8 @@ public sealed class WindowsPowerEvents(ILogger<WindowsPowerEvents> logger) : IPo
     {
         if (OperatingSystem.IsWindows() && e.Mode == PowerModes.Resume)
         {
-            logger.LogInformation("The computer woke up; checking the schedule");
-            ScheduleStale?.Invoke(this, EventArgs.Empty);
+            logger.LogInformation("The computer woke up; checking the schedule once the network is back");
+            Resumed?.Invoke(this, EventArgs.Empty);
         }
     }
 

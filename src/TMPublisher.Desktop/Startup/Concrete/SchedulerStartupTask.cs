@@ -10,6 +10,7 @@ public sealed class SchedulerStartupTask(PostScheduler scheduler, IPowerEvents p
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         power.ScheduleStale += (_, _) => scheduler.Wake();
+        power.Resumed += (_, _) => scheduler.WakeAfterResume();
         try
         {
             await power.StartAsync(cancellationToken).ConfigureAwait(false);

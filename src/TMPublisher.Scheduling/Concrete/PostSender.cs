@@ -136,7 +136,7 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
         try
         {
             var fresh = await renewer.GetFreshAsync(account, cancellationToken).ConfigureAwait(false);
-            var result = await platform.Publisher.PublishAsync(new PublishRequest(account, fresh, post, target, renewer.RenewFor(account)), null, cancellationToken)
+            var result = await platform.Publisher.PublishAsync(new PublishRequest(account, fresh, post, target, renewer.RenewFor(account, fresh)), null, cancellationToken)
                 .ConfigureAwait(false);
             var now = clock.GetUtcNow();
             target.Status = result.State;

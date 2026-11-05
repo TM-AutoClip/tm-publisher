@@ -35,7 +35,7 @@ internal sealed class ScriptedPlatform(string code = "scripted", int? dailyLimit
 
     public IPublisher Publisher => this;
 
-    public ITokenRefresher? Refresher => null;
+    public ITokenRefresher? Refresher { get; set; }
 
     public Task<PublishResult> PublishAsync(PublishRequest request, IProgress<double>? progress, CancellationToken cancellationToken)
     {
