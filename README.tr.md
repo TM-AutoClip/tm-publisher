@@ -168,8 +168,10 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 1. İsteğe bağlı: **Ayarlar → Yedek**'ten bir yedek alın.
 2. Eski sürümü durdurun:
    - **0.1.0–0.1.2'den:** tepsi menüsünden (**Çık**) ya da kenar çubuğunun altındaki **TM Publisher'dan çık** ile kapatın (pencereyi
-     kapatmak onu yalnız gizliyordu). Eski bir sürüm çalışırken yeni zamanlayıcı başlamaz; böylece bir gönderi asla iki kez
-     gitmez.
+     kapatmak onu yalnız gizliyordu); ona giden eski kısayolları ve sabitlemeleri de kaldırın. Yeni zamanlayıcı aynı veri
+     klasöründe eski bir sürüm bulduğu sürece başlamaz ve hiçbir gönderiyi üstüne almaz; Windows'ta sonradan başlatılan eski sürüm
+     hemen kapanır. Linux'ta yeni zamanlayıcıdan sonra başlatılan eski sürüm, siz onu kapatana kadar gönderileri kendisi yollar
+     (yeni olan bekler) ve yeninin o anda gönderdiği bir gönderi "yarıda kaldı" olarak dönebilir. Bu yüzden önce eski sürümü kapatın.
    - **0.1.3 ve sonrasından:** pencereyi kapatın ve zamanlayıcıyı durdurun (Ayarlar → **Durdur** ya da tepsi simgesi → **Çık**).
 3. Windows: yeni zip'i açın ve `TM Publisher` klasöründeki dosyaları değiştirin (aynı yer; otomatik başlatma çalışmaya devam eder).
    Tek bir `TMPublisher-<sürüm>-win-x64.exe` olan 0.1.0–0.1.2'den geliyorsanız: yeni klasörü istediğiniz yere koyun, oradaki

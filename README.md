@@ -161,8 +161,10 @@ you at once whether it worked.
 1. Optional: make a backup in **Settings → Backup**.
 2. Stop the old version:
    - **From 0.1.0–0.1.2:** quit it from its tray menu (**Quit**) or with **Quit TM Publisher** at the bottom of the sidebar
-     (closing the window only hid it). The new scheduler does not start while an old version runs, so a post can never be sent
-     twice.
+     (closing the window only hid it), and remove old shortcuts or pins to it. While the new scheduler finds an old version on the
+     same data folder it does not start and claims no post; on Windows an old version started later ends at once. On Linux an
+     old version started after the new scheduler sends the posts itself until you quit it (the new one waits), and a post the new
+     one was sending at that moment can come back as interrupted. So quit the old version first.
    - **From 0.1.3 on:** close the window and stop the scheduler (Settings → **Stop**, or the tray icon → **Quit**).
 3. Windows: unpack the new zip and replace the files of the `TM Publisher` folder (same place, so autostart keeps working). Coming
    from 0.1.0–0.1.2, which was a single `TMPublisher-<version>-win-x64.exe`: put the new folder where you like, start
