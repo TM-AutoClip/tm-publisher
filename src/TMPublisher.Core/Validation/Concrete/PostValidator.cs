@@ -27,7 +27,7 @@ public static class PostValidator
         }
 
         CheckMedia(platform, post, exists, problems);
-        CheckText(platform, target, problems);
+        CheckText(platform, post, target, problems);
         return problems;
     }
 
@@ -75,7 +75,7 @@ public static class PostValidator
         }
     }
 
-    private static void CheckText(IPlatform platform, PostTarget target, List<ValidationProblem> problems)
+    private static void CheckText(IPlatform platform, Post post, PostTarget target, List<ValidationProblem> problems)
     {
         var caps = platform.Capabilities;
         if (caps.HasTitle)
@@ -95,10 +95,11 @@ public static class PostValidator
             return;
         }
 
+        var limit = post.Media.Count > 0 && caps.MaxMediaTextLength > 0 ? caps.MaxMediaTextLength : caps.MaxTextLength;
         var length = caps.TextMeasure.Measure(target.Text);
-        if (length > caps.MaxTextLength)
+        if (length > limit)
         {
-            problems.Add(new ValidationProblem("problem.text_too_long", platform.DisplayName, length, caps.MaxTextLength));
+            problems.Add(new ValidationProblem("problem.text_too_long", platform.DisplayName, length, limit));
         }
 
         var tags = HashtagRules.TagsIn(target.Text).Count;

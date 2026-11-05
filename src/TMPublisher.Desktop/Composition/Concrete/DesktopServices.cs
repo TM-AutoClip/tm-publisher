@@ -4,7 +4,11 @@ using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Accounts;
 using TMPublisher.Core.Platforms;
 using TMPublisher.Desktop.Accounts;
+using TMPublisher.Platforms.Bluesky;
 using TMPublisher.Platforms.Common;
+using TMPublisher.Platforms.Discord;
+using TMPublisher.Platforms.Mastodon;
+using TMPublisher.Platforms.Telegram;
 using TMPublisher.Platforms.Connections;
 using TMPublisher.Scheduling.Accounts;
 using TMPublisher.Core.Localization;
@@ -98,6 +102,10 @@ public static class DesktopServices
         services.AddSingleton<ILoopbackListener, LoopbackListener>();
         services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
         services.AddSingleton<CredentialRenewer>();
+        services.AddSingleton<IPlatform, TelegramPlatform>();
+        services.AddSingleton<IPlatform, DiscordPlatform>();
+        services.AddSingleton<IPlatform, BlueskyPlatform>();
+        services.AddSingleton<IPlatform, MastodonPlatform>();
         overrides?.Invoke(services);
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }

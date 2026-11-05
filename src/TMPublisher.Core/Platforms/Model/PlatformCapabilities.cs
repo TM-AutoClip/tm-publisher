@@ -15,6 +15,9 @@ public sealed record PlatformCapabilities
     /// <summary>Longest text; 0 = no text field.</summary>
     public required int MaxTextLength { get; init; }
 
+    /// <summary>Longest text of a post with media (a caption); 0 = same as <see cref="MaxTextLength"/>.</summary>
+    public int MaxMediaTextLength { get; init; }
+
     /// <summary>How the platform counts text length.</summary>
     public required ITextMeasure TextMeasure { get; init; }
 
