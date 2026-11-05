@@ -29,12 +29,27 @@ public sealed class DiscordTests
     public async Task FilesGoAsMultipartAndTheAddressIsBuilt()
     {
         using var media = new TestMedia();
-        var http = new FakeHttp().Json(HttpMethod.Post, "?wait=true", "{\"id\":\"9\",\"channel_id\":\"55\",\"guild_id\":\"77\"}");
+        // A REST message carries no guild_id; the server id comes from the webhook.
+        var http = new FakeHttp()
+            .Json(HttpMethod.Post, "?wait=true", "{\"id\":\"9\",\"channel_id\":\"55\"}")
+            .Json(HttpMethod.Get, "/webhooks/123/", "{\"id\":\"123\",\"channel_id\":\"55\",\"guild_id\":\"77\"}");
         var publisher = new DiscordPublisher(http.Transport, NullLogger<DiscordPublisher>.Instance);
         var post = new Post { Kind = PostKind.Photo, Media = [media.Photo()] };
         var result = await publisher.PublishAsync(TestMedia.Request(post, "Hi", Credentials.Empty.With((CredentialKeys.WebhookUrl, Hook))), null, CancellationToken.None);
         result.Url.ShouldBe("https://discord.com/channels/77/55/9");
-        http.Requests.Single().Body.ShouldContain("payload_json");
-        http.Requests.Single().Body.ShouldContain("files[0]");
+        http.To("?wait=true").Single().Body.ShouldContain("payload_json");
+        http.To("?wait=true").Single().Body.ShouldContain("files[0]");
+    }
+
+    [Fact]
+    public async Task APostStaysPublishedWhenTheServerIdCannotBeRead()
+    {
+        var http = new FakeHttp().Json(HttpMethod.Post, "?wait=true", "{\"id\":\"9\",\"channel_id\":\"55\"}");
+        var publisher = new DiscordPublisher(http.Transport, NullLogger<DiscordPublisher>.Instance);
+        var post = new Post { Kind = PostKind.Text };
+        var result = await publisher.PublishAsync(TestMedia.Request(post, "Hi", Credentials.Empty.With((CredentialKeys.WebhookUrl, Hook))), null, CancellationToken.None);
+        result.State.ShouldBe(TargetStatus.Published);
+        result.ExternalId.ShouldBe("9");
+        result.Url.ShouldBeEmpty();
     }
 }

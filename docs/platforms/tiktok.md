@@ -6,7 +6,7 @@ TM Publisher talks to TikTok only with **your own** developer app or key. Nothin
 
 ## What you can post
 
-One video per post. By default it goes to your TikTok inbox as a draft; an optional direct post is always private.
+One video per post. By default it goes to your TikTok inbox as a draft; an optional direct post is always private and needs a private TikTok account.
 
 ## Return address
 
@@ -30,5 +30,5 @@ When the test succeeds the account appears under **Accounts** and can be used in
 ## Good to know
 
 - By default the video goes to your TikTok inbox as a draft; you finish the post (caption, visibility) in the TikTok app. Drafts carry no text.
-- Direct posting is optional and, for an app that TikTok has not audited, always private (only you can see it).
+- Direct posting is optional and, for an app that TikTok has not audited, always private (only you can see it). TikTok also allows it only when the TikTok account itself is private (TikTok app → Settings → Privacy → Private account); with a public account use drafts.
 - TikTok's audit does not accept "a tool to upload to my own accounts", so public direct posts stay closed; at most 5 drafts may wait in 24 hours.

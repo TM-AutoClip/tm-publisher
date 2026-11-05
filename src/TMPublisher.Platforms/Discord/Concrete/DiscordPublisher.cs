@@ -11,7 +11,8 @@ namespace TMPublisher.Platforms.Discord;
 
 /// <summary>
 /// Webhook post: <c>POST {webhook}?wait=true</c>; text as JSON, files as multipart (<c>payload_json</c> + <c>files[n]</c>). With
-/// <c>wait=true</c> Discord returns the message, which gives its address. 429 → waits <c>retry_after</c> once or twice.
+/// <c>wait=true</c> Discord returns the message; its address needs the server id, which a REST message does not carry, so it is read from
+/// the webhook. 429 → waits <c>retry_after</c> once or twice.
 /// </summary>
 public sealed class DiscordPublisher(HttpTransport transport, ILogger<DiscordPublisher> logger) : PublisherBase(transport, TimeSpan.FromMinutes(10), logger)
 {
@@ -64,6 +65,14 @@ public sealed class DiscordPublisher(HttpTransport transport, ILogger<DiscordPub
             var id = JsonSafe.Str(message, "id");
             var channel = JsonSafe.Str(message, "channel_id");
             var guild = JsonSafe.Str(message, "guild_id");
+            if (guild.Length == 0 && id.Length > 0)
+            {
+                // A REST message has no guild_id; the webhook itself carries it (read without a token, the address is the key).
+                guild = await ReadAfterPublishAsync("Discord server id", id, async ct => JsonSafe.Str(
+                    await SendJsonAsync(() => new HttpRequestMessage(HttpMethod.Get, hook), null, "webhook read", ct).ConfigureAwait(false), "guild_id"),
+                    cancellationToken).ConfigureAwait(false);
+            }
+
             progress?.Report(1);
             Logger.LogInformation("Discord webhook message {MessageId} posted", id);
             return new PublishResult(id, guild.Length > 0 ? $"https://discord.com/channels/{guild}/{channel}/{id}" : string.Empty, TargetStatus.Published);

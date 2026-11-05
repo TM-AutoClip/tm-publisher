@@ -71,6 +71,27 @@ public sealed class TikTokLinkedInPinterestTests
     }
 
     [Fact]
+    public async Task TikTokPublicAccountErrorSaysTheAccountMustBePrivate()
+    {
+        using var media = new TestMedia();
+        var http = new FakeHttp()
+            .Json(HttpMethod.Post, "creator_info/query/", "{\"data\":{\"privacy_level_options\":[\"SELF_ONLY\"]},\"error\":{\"code\":\"ok\"}}")
+            .Json(HttpMethod.Post, "publish/video/init/", "{\"error\":{\"code\":\"unaudited_client_can_only_post_to_private_accounts\",\"message\":\"x\"}}",
+                HttpStatusCode.Forbidden);
+        var publisher = new TikTokPublisher(http.Transport, NullLogger<TikTokPublisher>.Instance) { Delay = (_, _) => Task.CompletedTask };
+        var post = new Post { Kind = PostKind.Video, Media = [media.Video()] };
+        var request = TestMedia.Request(post, "Caption", Credentials.Empty.With((CredentialKeys.AccessToken, "t")), options: new() { [TargetOptionKeys.TikTokMode] = "direct" });
+        var error = await Should.ThrowAsync<TMPublisher.Core.Publishing.PlatformRejectedException>(() => publisher.PublishAsync(request, null, None));
+        error.Message.ShouldContain("private TikTok account");
+    }
+
+    [Theory]
+    [InlineData("Yeni video (bölüm 2) – detaylar [link]", @"Yeni video \(bölüm 2\) – detaylar \[link\]")]
+    [InlineData(@"my_file *bold* ~x~ a|b {c} <d> @e \f", @"my\_file \*bold\* \~x\~ a\|b \{c\} \<d\> \@e \\f")]
+    [InlineData("#news today (#tag) C# 5 # alone", @"#news today \(#tag\) C\# 5 \# alone")]
+    public void LinkedInTextIsEscapedAsLittleText(string text, string expected) => LittleText.Escape(text).ShouldBe(expected);
+
+    [Fact]
     public void TikTokChunkPlanFollowsTheRules()
     {
         TikTokPublisher.ChunkPlan(3_000_000, 10_000_000).ShouldBe((3_000_000L, 1));
@@ -93,9 +114,11 @@ public sealed class TikTokLinkedInPinterestTests
         var connected = await platform.Connection.ConnectAsync(new ConnectionInput(new Dictionary<string, string> { [CredentialKeys.AccessToken] = "tok" }), new FakePrompt(), None);
         connected.ReconnectByUtc.ShouldNotBeNull();
 
-        var result = await platform.Publisher.PublishAsync(TestMedia.Request(new Post { Kind = PostKind.Text }, "Hello", connected.Credentials), null, None);
+        var result = await platform.Publisher.PublishAsync(TestMedia.Request(new Post { Kind = PostKind.Text }, "Hello (part 1) #news", connected.Credentials), null, None);
         result.Url.ShouldBe("https://www.linkedin.com/feed/update/urn%3Ali%3Ashare%3A1/");
-        http.To("rest/posts").Single().Body.ShouldContain("\"author\":\"urn:li:person:abc\"");
+        var body = System.Text.Json.Nodes.JsonNode.Parse(http.To("rest/posts").Single().Body)!;
+        body["author"]!.GetValue<string>().ShouldBe("urn:li:person:abc");
+        body["commentary"]!.GetValue<string>().ShouldBe(@"Hello \(part 1\) #news");
     }
 
     [Fact]

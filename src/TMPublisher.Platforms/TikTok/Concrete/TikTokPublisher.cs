@@ -127,7 +127,7 @@ public sealed class TikTokPublisher(HttpTransport transport, ILogger<TikTokPubli
         {
             "access_token_invalid" or "scope_not_authorized" or "scope_permission_missed" => new PlatformAuthException(text),
             "spam_risk_too_many_posts" or "spam_risk_too_many_pending_share" or "reached_active_user_cap" => new PlatformQuotaException(text),
-            "unaudited_client_can_only_post_to_private_accounts" => new PlatformRejectedException(text + " Unaudited TikTok apps can post directly only as private (SELF_ONLY); use the draft mode."),
+            "unaudited_client_can_only_post_to_private_accounts" => new PlatformRejectedException(text + " TikTok lets an app it has not audited post directly only to a private TikTok account: set the TikTok account itself to private (TikTok app → Settings → Privacy), or use the draft mode."),
             _ when status == 401 => new PlatformAuthException(text),
             _ => new PlatformRejectedException(text),
         };

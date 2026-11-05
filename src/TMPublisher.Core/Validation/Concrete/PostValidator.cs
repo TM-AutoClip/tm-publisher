@@ -7,7 +7,7 @@ namespace TMPublisher.Core.Validation;
 /// <summary>
 /// RULE ENGINE: what may go to a platform. The compose screen shows the problems, the dispatcher runs the same check before any request.
 /// Nothing is cut or converted silently: a too long text or too large file blocks the target with a clear reason.
-/// Order: kind supported, media count and files, sizes, title, text length, hashtags.
+/// Order: kind supported, media count and files, sizes, title, forbidden characters, keyword length, text length, hashtags.
 /// </summary>
 public static class PostValidator
 {
@@ -90,6 +90,21 @@ public static class PostValidator
             }
         }
 
+        if (caps.ForbiddenCharacters.Length > 0)
+        {
+            var found = (caps.HasTitle ? target.Title : string.Empty).Concat(target.Text).Where(c => caps.ForbiddenCharacters.Contains(c, StringComparison.Ordinal))
+                .Distinct().ToArray();
+            if (found.Length > 0)
+            {
+                problems.Add(new ValidationProblem("problem.forbidden_characters", platform.DisplayName, string.Join(" ", found)));
+            }
+        }
+
+        if (caps.MaxKeywordsLength > 0 && KeywordsLength(target.Keywords) is var keywords && keywords > caps.MaxKeywordsLength)
+        {
+            problems.Add(new ValidationProblem("problem.keywords_too_long", platform.DisplayName, keywords, caps.MaxKeywordsLength));
+        }
+
         if (caps.MaxTextLength == 0)
         {
             return;
@@ -107,6 +122,16 @@ public static class PostValidator
         {
             problems.Add(new ValidationProblem("problem.too_many_hashtags", platform.DisplayName, tags, caps.MaxHashtags));
         }
+    }
+
+    /// <summary>
+    /// Length of a keyword list as YouTube counts it against its 500-character limit: the keywords, a comma between two, and two quotes
+    /// around a keyword that contains a space.
+    /// </summary>
+    public static int KeywordsLength(IReadOnlyCollection<string> keywords)
+    {
+        ArgumentNullException.ThrowIfNull(keywords);
+        return keywords.Sum(k => k.Length + (k.Contains(' ', StringComparison.Ordinal) ? 2 : 0)) + Math.Max(0, keywords.Count - 1);
     }
 
     /// <summary>Readable size ("300 MB", "3.2 MB"), invariant culture.</summary>

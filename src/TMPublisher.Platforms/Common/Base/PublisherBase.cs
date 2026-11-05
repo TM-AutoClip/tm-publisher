@@ -123,6 +123,25 @@ public abstract class PublisherBase : IPublisher
     }
 
     /// <summary>
+    /// A read made after the item is already live (its address, its link parts). Any failure, even a cancellation, is logged as a warning and
+    /// gives an empty text: failing the target here would make the user send again and post the same thing twice.
+    /// </summary>
+    protected async Task<string> ReadAfterPublishAsync(string what, string externalId, Func<CancellationToken, Task<string>> read, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        try
+        {
+            return await read(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "{What} of the published item {ExternalId} could not be read ({Type}); the post is live and is not sent again", what, externalId,
+                ex.GetType().Name);
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
     /// "Poll until processed": <paramref name="check"/> asks every round; when not done, waits what it returned. When the total wait reaches
     /// <paramref name="limit"/> the <paramref name="timedOut"/> exception is thrown.
     /// </summary>

@@ -6,7 +6,7 @@ TM Publisher TikTok ile yalnız **sizin kendi** geliştirici uygulamanız ya da 
 
 ## Neler gönderilebilir
 
-Gönderi başına bir video. Varsayılan olarak TikTok gelen kutunuza taslak gider; isteğe bağlı doğrudan paylaşım her zaman gizlidir.
+Gönderi başına bir video. Varsayılan olarak TikTok gelen kutunuza taslak gider; isteğe bağlı doğrudan paylaşım her zaman gizlidir ve gizli bir TikTok hesabı ister.
 
 ## Dönüş adresi
 
@@ -30,5 +30,5 @@ Deneme başarılı olunca hesap **Hesaplar** altında görünür; gönderilerde 
 ## Bilmeniz gerekenler
 
 - Varsayılan olarak video TikTok gelen kutunuza taslak gider; gönderiyi (açıklama, görünürlük) TikTok uygulamasında tamamlarsınız. Taslak metin taşımaz.
-- Doğrudan paylaşım isteğe bağlıdır ve TikTok'un denetlemediği bir uygulamada her zaman gizlidir (yalnız siz görürsünüz).
+- Doğrudan paylaşım isteğe bağlıdır ve TikTok'un denetlemediği bir uygulamada her zaman gizlidir (yalnız siz görürsünüz). TikTok buna yalnız TikTok hesabının kendisi gizliyse izin verir (TikTok uygulaması → Ayarlar → Gizlilik → Gizli hesap); herkese açık hesapta taslak kullanın.
 - TikTok denetimi "kendi hesaplarıma yükleme aracı"nı kabul etmez, bu yüzden herkese açık doğrudan paylaşım kapalı kalır; 24 saatte en çok 5 taslak bekleyebilir.

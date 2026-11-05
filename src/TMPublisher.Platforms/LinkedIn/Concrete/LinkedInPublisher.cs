@@ -11,7 +11,8 @@ namespace TMPublisher.Platforms.LinkedIn;
 /// <summary>
 /// LinkedIn Posts API (REST, versioned): images → <c>/rest/images?action=initializeUpload</c> + PUT; video → <c>/rest/videos?action=
 /// initializeUpload</c>, PUT every part (ETags collected), <c>finalizeUpload</c>; then <c>POST /rest/posts</c> as the member
-/// (<c>urn:li:person:{id}</c>, public, main feed). The new post's id comes in the <c>x-restli-id</c> header.
+/// (<c>urn:li:person:{id}</c>, public, main feed). The text is sent in LinkedIn's "little" format (<see cref="LittleText"/>). The new
+/// post's id comes in the <c>x-restli-id</c> header.
 /// </summary>
 public sealed class LinkedInPublisher(HttpTransport transport, ILogger<LinkedInPublisher> logger) : PublisherBase(transport, TimeSpan.FromMinutes(30), logger)
 {
@@ -39,7 +40,7 @@ public sealed class LinkedInPublisher(HttpTransport transport, ILogger<LinkedInP
         var body = new JsonObject
         {
             ["author"] = author,
-            ["commentary"] = request.Target.Text,
+            ["commentary"] = LittleText.Escape(request.Target.Text),
             ["visibility"] = "PUBLIC",
             ["distribution"] = new JsonObject { ["feedDistribution"] = "MAIN_FEED", ["targetEntities"] = new JsonArray(), ["thirdPartyDistributionChannels"] = new JsonArray() },
             ["lifecycleState"] = "PUBLISHED",

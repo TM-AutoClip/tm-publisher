@@ -48,6 +48,22 @@ public sealed class PostValidatorTests
     }
 
     [Fact]
+    public void YouTubeRefusesAngleBracketsAndTooLongTags()
+    {
+        var caps = new TMPublisher.Platforms.YouTube.YouTubePlatform(new TMPublisher.Tests.Platforms.FakeHttp().Transport, TimeProvider.System,
+            new TMPublisher.Tests.Platforms.FakeLoopback(new TMPublisher.Tests.Platforms.FakePrompt()), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).Capabilities;
+        var platform = new TestPlatform(caps);
+        var post = new Post { Kind = PostKind.Video, Media = [new MediaItem("a.mp4", MediaType.Video, 5)] };
+        var tags = Enumerable.Range(0, 60).Select(i => "tag number " + i).ToList();
+        var problems = PostValidator.Validate(platform, post, new PostTarget { Title = "Before -> after", Text = "I <3 it", Keywords = tags }, _ => true);
+        problems.Select(p => p.Key).ShouldBe(["problem.forbidden_characters", "problem.keywords_too_long"]);
+        problems[0].Args[1].ShouldBe("> <");
+
+        PostValidator.Validate(platform, post, new PostTarget { Title = "Fine", Text = "Fine", Keywords = ["a b", "c"] }, _ => true).ShouldBeEmpty();
+        PostValidator.KeywordsLength(["a b", "c"]).ShouldBe(3 + 2 + 1 + 1);
+    }
+
+    [Fact]
     public void ValidPostHasNoProblem() =>
         Check(TestPlatform.Caps(PostKind.Text), new Post { Kind = PostKind.Text }, "ok #a").ShouldBeEmpty();
 }

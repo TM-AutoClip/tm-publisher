@@ -44,6 +44,8 @@ public sealed class YouTubePlatform : PlatformBase
         HasTitle = true,
         MaxTitleLength = 100,
         HasKeywords = true,
+        MaxKeywordsLength = 500,
+        ForbiddenCharacters = "<>",
         MaxTextLength = 5000,
         TextMeasure = Utf8ByteMeasure.Instance,
         MaxHashtags = 60,

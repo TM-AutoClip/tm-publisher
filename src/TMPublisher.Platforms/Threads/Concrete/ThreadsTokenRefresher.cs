@@ -3,6 +3,7 @@ using TMPublisher.Core.Platforms;
 using TMPublisher.Core.Publishing;
 using TMPublisher.Platforms.Common;
 using TMPublisher.Platforms.Connections;
+using TMPublisher.Platforms.Meta;
 
 namespace TMPublisher.Platforms.Threads;
 
@@ -28,9 +29,14 @@ public sealed class ThreadsTokenRefresher(HttpTransport transport, TimeProvider 
     public async Task<Credentials> RefreshAsync(Credentials credentials, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(credentials);
-        var answer = await _http.GetJsonAsync("Threads token refresh", ThreadsApi.TokenRoot + "refresh_access_token?grant_type=th_refresh_token&access_token="
-            + Uri.EscapeDataString(credentials.Require(CredentialKeys.AccessToken)), null, cancellationToken).ConfigureAwait(false);
-        return OAuthTokens.Apply(credentials, answer, clock.GetUtcNow());
+        using var request = new HttpRequestMessage(HttpMethod.Get, ThreadsApi.TokenRoot + "refresh_access_token?grant_type=th_refresh_token&access_token="
+            + Uri.EscapeDataString(credentials.Require(CredentialKeys.AccessToken)));
+        var reply = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+        // An expired or revoked token comes back as HTTP 400 with Meta's error code 190: that is "connect again", not a plain rejection.
+        return reply.IsSuccess
+            ? OAuthTokens.Apply(credentials, JsonSafe.TryParse(reply.Body), clock.GetUtcNow())
+            : throw MetaErrors.Classify("Threads", "token refresh", reply.Status, reply.Body);
     }
 
     /// <summary>Turns a short-lived token into a 60-day one (needs the app secret).</summary>

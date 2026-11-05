@@ -30,6 +30,12 @@ public sealed record PlatformCapabilities
     /// <summary>Has a separate keyword (tag) field (YouTube).</summary>
     public bool HasKeywords { get; init; }
 
+    /// <summary>Total length of the keywords as the platform counts it (YouTube: commas between, quotes around a tag with spaces); 0 = none.</summary>
+    public int MaxKeywordsLength { get; init; }
+
+    /// <summary>Characters the platform refuses in the title and the text (YouTube: <c>&lt;</c> and <c>&gt;</c>); empty = none.</summary>
+    public string ForbiddenCharacters { get; init; } = string.Empty;
+
     /// <summary>Most hashtags in the text; 0 = no limit known.</summary>
     public int MaxHashtags { get; init; }
 

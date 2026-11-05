@@ -83,18 +83,9 @@ public sealed class InstagramPublisher(HttpTransport transport, ILogger<Instagra
             Content = new FormUrlEncodedContent([new("creation_id", id), new("access_token", token)]),
         }, null, "publish", cancellationToken).ConfigureAwait(false);
         var media = JsonSafe.Str(published, "id");
-        var permalink = string.Empty;
-        try
-        {
-            permalink = JsonSafe.Str(await SendJsonAsync(() => new HttpRequestMessage(HttpMethod.Get, MetaGraph.Root + media + "?fields=permalink&access_token=" + Uri.EscapeDataString(token)),
-                null, "permalink", cancellationToken).ConfigureAwait(false), "permalink");
-        }
-        catch (PlatformRejectedException ex)
-        {
-            // The Reel is live; only its address is missing. Publishing again would post it twice, so this is a warning, not a failure.
-            Logger.LogWarning(ex, "Instagram permalink could not be read for {MediaId}", media);
-        }
-
+        var permalink = await ReadAfterPublishAsync("Instagram permalink", media, async ct => JsonSafe.Str(await SendJsonAsync(() => new HttpRequestMessage(
+            HttpMethod.Get, MetaGraph.Root + media + "?fields=permalink&access_token=" + Uri.EscapeDataString(token)), null, "permalink", ct).ConfigureAwait(false),
+            "permalink"), cancellationToken).ConfigureAwait(false);
         progress?.Report(1);
         Logger.LogInformation("Instagram Reel {MediaId} published", media);
         return new PublishResult(media, permalink, TargetStatus.Published);

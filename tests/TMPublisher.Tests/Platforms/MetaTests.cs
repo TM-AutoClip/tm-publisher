@@ -99,6 +99,65 @@ public sealed class MetaTests
         upload.Headers.GetValues("file_size").Single().ShouldBe("5000");
     }
 
+    public static TheoryData<string> PermalinkFailures => ["quota", "auth", "network"];
+
+    [Theory]
+    [MemberData(nameof(PermalinkFailures))]
+    public async Task InstagramReelStaysPublishedWhenItsAddressCannotBeRead(string failure)
+    {
+        using var media = new TestMedia();
+        var http = new FakeHttp()
+            .Json(HttpMethod.Get, "content_publishing_limit", "{\"data\":[]}")
+            .Json(HttpMethod.Post, "/ig2/media_publish", "{\"id\":\"m9\"}")
+            .Json(HttpMethod.Post, "/ig2/media", "{\"id\":\"c1\",\"uri\":\"https://rupload.facebook.com/ig-api-upload/v26.0/c1\"}")
+            .Json(HttpMethod.Post, "rupload.facebook.com", "{\"success\":true}")
+            .Json(HttpMethod.Get, "/c1?fields=status_code", "{\"status_code\":\"FINISHED\"}")
+            .On(HttpMethod.Get, "/m9?fields=permalink", (_, _) => Failure(failure));
+        var publisher = new InstagramPublisher(http.Transport, NullLogger<InstagramPublisher>.Instance) { Delay = (_, _) => Task.CompletedTask };
+        var post = new Post { Kind = PostKind.Video, Media = [media.Video()] };
+        var creds = Credentials.Empty.With((MetaKeys.InstagramId, "ig2"), (CredentialKeys.AccessToken, "pt2"));
+        var result = await publisher.PublishAsync(TestMedia.Request(post, "Caption", creds), null, None);
+
+        result.State.ShouldBe(TargetStatus.Published);
+        result.ExternalId.ShouldBe("m9");
+        result.Url.ShouldBeEmpty();
+        http.To("media_publish").Count().ShouldBe(1);
+    }
+
+    [Theory]
+    [MemberData(nameof(PermalinkFailures))]
+    public async Task ThreadsPostStaysPublishedWhenItsAddressCannotBeRead(string failure)
+    {
+        var http = new FakeHttp()
+            .Json(HttpMethod.Post, "/77/threads_publish", "{\"id\":\"p1\"}")
+            .Json(HttpMethod.Post, "/77/threads", "{\"id\":\"c1\"}")
+            .Json(HttpMethod.Get, "/c1?fields=status", "{\"status\":\"FINISHED\"}")
+            .On(HttpMethod.Get, "/p1?fields=permalink", (_, _) => Failure(failure));
+        var publisher = new ThreadsPublisher(http.Transport, NullLogger<ThreadsPublisher>.Instance);
+        var creds = Credentials.Empty.With((CredentialKeys.UserId, "77"), (CredentialKeys.AccessToken, "long"));
+        var result = await publisher.PublishAsync(TestMedia.Request(new Post { Kind = PostKind.Text }, "Hello", creds), null, None);
+        result.State.ShouldBe(TargetStatus.Published);
+        result.ExternalId.ShouldBe("p1");
+        result.Url.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task AnExpiredThreadsTokenMeansConnectAgain()
+    {
+        var http = new FakeHttp().Json(HttpMethod.Get, "refresh_access_token",
+            "{\"error\":{\"message\":\"Error validating access token\",\"type\":\"OAuthException\",\"code\":190}}", HttpStatusCode.BadRequest);
+        var refresher = new ThreadsTokenRefresher(http.Transport, TimeProvider.System);
+        var creds = Credentials.Empty.With((CredentialKeys.AccessToken, "old"));
+        await Should.ThrowAsync<PlatformAuthException>(() => refresher.RefreshAsync(creds, None));
+    }
+
+    private static HttpResponseMessage Failure(string kind) => kind switch
+    {
+        "quota" => FakeHttp.Response(HttpStatusCode.BadRequest, "{\"error\":{\"message\":\"limit\",\"code\":4}}"),
+        "auth" => FakeHttp.Response(HttpStatusCode.BadRequest, "{\"error\":{\"message\":\"expired\",\"code\":190}}"),
+        _ => throw new HttpRequestException("The network went away"),
+    };
+
     [Fact]
     public async Task InstagramStopsAtTheDailyLimitBeforeUploading()
     {

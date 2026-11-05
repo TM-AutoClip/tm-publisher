@@ -37,17 +37,9 @@ public sealed class ThreadsPublisher(HttpTransport transport, ILogger<ThreadsPub
         var published = await SendJsonAsync(() => Form(ThreadsApi.Graph + user + "/threads_publish", session, [new("creation_id", id)]), null, "publish", cancellationToken)
             .ConfigureAwait(false);
         var postId = JsonSafe.Str(published, "id");
-        var permalink = string.Empty;
-        try
-        {
-            permalink = JsonSafe.Str(await SendJsonAsync(() => new HttpRequestMessage(HttpMethod.Get, ThreadsApi.Graph + postId + "?fields=permalink&access_token="
-                + Uri.EscapeDataString(session.Token)), null, "permalink", cancellationToken).ConfigureAwait(false), "permalink");
-        }
-        catch (PlatformRejectedException ex)
-        {
-            Logger.LogWarning(ex, "Threads permalink could not be read for {PostId}", postId);
-        }
-
+        var permalink = await ReadAfterPublishAsync("Threads permalink", postId, async ct => JsonSafe.Str(await SendJsonAsync(() => new HttpRequestMessage(
+            HttpMethod.Get, ThreadsApi.Graph + postId + "?fields=permalink&access_token=" + Uri.EscapeDataString(session.Token)), null, "permalink", ct)
+            .ConfigureAwait(false), "permalink"), cancellationToken).ConfigureAwait(false);
         progress?.Report(1);
         Logger.LogInformation("Threads post {PostId} published", postId);
         return new PublishResult(postId, permalink, TargetStatus.Published);
