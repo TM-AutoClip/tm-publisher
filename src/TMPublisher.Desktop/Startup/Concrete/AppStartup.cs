@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Desktop.Composition;
 using TMPublisher.Desktop.Localization;
-using TMPublisher.Desktop.Logging;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
 using TMPublisher.Desktop.ViewModels;
@@ -184,9 +183,9 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
 
         if (startHidden)
         {
-            // Start-up garbage (database model, first reads) is not needed in the tray: one compacting collection, then the log line.
-            MainWindowHost.Compact();
-            MemoryUse.LogTrayEntry(logger, "started in the tray");
+            // Start-up garbage (database model, first reads) is not needed in the tray: one compacting collection, then the log line;
+            // skipped when the window was opened during start-up (the app is not in the tray then).
+            main.SettleInTray("started in the tray");
         }
     }
 

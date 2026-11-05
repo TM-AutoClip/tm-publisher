@@ -106,6 +106,23 @@ public sealed class MainWindowHostTests
     }
 
     [AvaloniaFact]
+    public void TheTrayLogLineIsWrittenOnlyWhenNoWindowIsOpen()
+    {
+        using var h = new DesktopHarness();
+        var host = h.Services.GetRequiredService<MainWindowHost>();
+        host.Configure(() => new Window(), () => true, _ => { });
+
+        // Started in the tray, but the user opened the window before start-up finished: not in the tray, nothing is written.
+        host.SettleInTray("started in the tray").ShouldBeTrue();
+        var window = host.Show();
+        host.SettleInTray("started in the tray").ShouldBeFalse();
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+        host.SettleInTray("window closed").ShouldBeTrue();
+    }
+
+    [AvaloniaFact]
     public void PagesAreMadeOnlyWhenFirstOpened()
     {
         using var h = new DesktopHarness();

@@ -118,10 +118,27 @@ public sealed class MainWindowHost(WindowHost windows, ILogger<MainWindowHost> l
         // a compacting full collection (large object heap included) lets the runtime return the emptied segments. Not repeated, no timer.
         Dispatcher.UIThread.Post(() =>
         {
-            Compact();
-            MemoryUse.LogTrayEntry(logger, "window closed");
-            Released?.Invoke(this, EventArgs.Empty);
+            if (SettleInTray("window closed"))
+            {
+                Released?.Invoke(this, EventArgs.Empty);
+            }
         }, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// When no main window is open (the app is in the tray): one compacting collection and the memory line in the log. Returns
+    /// <c>false</c> and does nothing while a window is open (it was opened during start-up, or again right after closing).
+    /// </summary>
+    public bool SettleInTray(string reason)
+    {
+        if (Window is not null)
+        {
+            return false;
+        }
+
+        Compact();
+        MemoryUse.LogTrayEntry(logger, reason);
+        return true;
     }
 
     /// <summary>One blocking, compacting collection of every generation, the large object heap too.</summary>
