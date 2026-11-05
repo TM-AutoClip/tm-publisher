@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -154,7 +155,7 @@ public static class DesktopServices
     /// Registers a page: one instance, created the first time it is opened (not at start-up; in the tray no page is made), and its sidebar
     /// entry, which needs only the page's static title, glyph and position.
     /// </summary>
-    private static void AddPage<TPage>(IServiceCollection services)
+    private static void AddPage<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TPage>(IServiceCollection services)
         where TPage : PageViewModelBase, IPageInfo
     {
         services.AddSingleton<TPage>();
