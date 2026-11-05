@@ -87,6 +87,7 @@ public static class DesktopServices
         services.AddSingleton<AppSession>();
         services.AddSingleton<BrowserLauncher>();
         services.AddSingleton<WindowHost>();
+        services.AddSingleton<MainWindowHost>();
         services.AddSingleton<FileDialogs>();
         services.AddSingleton<ToastNotifier>();
         services.AddSingleton<INotifier>(s => s.GetRequiredService<ToastNotifier>());
@@ -98,15 +99,15 @@ public static class DesktopServices
         services.AddSingleton<AccountService>();
         services.AddTransient<ConnectViewModel>();
         services.AddSingleton<Func<ConnectViewModel>>(s => s.GetRequiredService<ConnectViewModel>);
-        services.AddSingleton<ComposeViewModel>();
-        services.AddSingleton<PageViewModelBase>(s => s.GetRequiredService<ComposeViewModel>());
-        services.AddSingleton<PageViewModelBase, CalendarViewModel>();
-        services.AddSingleton<PageViewModelBase, HistoryViewModel>();
-        services.AddSingleton<PageViewModelBase, AttentionViewModel>();
-        services.AddSingleton<PageViewModelBase, AccountsViewModel>();
-        services.AddSingleton<PageViewModelBase, GroupsViewModel>();
-        services.AddSingleton<PageViewModelBase, TagSetsViewModel>();
-        services.AddSingleton<PageViewModelBase, SettingsViewModel>();
+        services.AddSingleton<PageNavigator>();
+        AddPage<ComposeViewModel>(services);
+        AddPage<CalendarViewModel>(services);
+        AddPage<HistoryViewModel>(services);
+        AddPage<AttentionViewModel>(services);
+        AddPage<AccountsViewModel>(services);
+        AddPage<GroupsViewModel>(services);
+        AddPage<TagSetsViewModel>(services);
+        AddPage<SettingsViewModel>(services);
         services.AddSingleton(new ViewLocator()
             .Register<ComposeViewModel, ComposeView>()
             .Register<CalendarViewModel, CalendarView>()
@@ -147,5 +148,16 @@ public static class DesktopServices
         services.AddSingleton<IPlatform, LinkedInPlatform>();
         overrides?.Invoke(services);
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
+    }
+
+    /// <summary>
+    /// Registers a page: one instance, created the first time it is opened (not at start-up; in the tray no page is made), and its sidebar
+    /// entry, which needs only the page's static title, glyph and position.
+    /// </summary>
+    private static void AddPage<TPage>(IServiceCollection services)
+        where TPage : PageViewModelBase, IPageInfo
+    {
+        services.AddSingleton<TPage>();
+        services.AddSingleton(s => new PageEntry(typeof(TPage), TPage.TitleKey, TPage.Glyph, TPage.Order, s.GetRequiredService<TPage>));
     }
 }

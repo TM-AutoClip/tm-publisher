@@ -12,17 +12,15 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly Localizer _text;
     private readonly ILogger<ShellViewModel> _logger;
 
-    /// <summary>Builds the sidebar from every registered page.</summary>
-    public ShellViewModel(IEnumerable<PageViewModelBase> pages, Localizer text, ILogger<ShellViewModel> logger)
+    /// <summary>Builds the sidebar from every registered page (the pages themselves are created when first opened).</summary>
+    public ShellViewModel(IEnumerable<PageEntry> pages, PageNavigator navigator, Localizer text, ILogger<ShellViewModel> logger)
     {
+        ArgumentNullException.ThrowIfNull(navigator);
         ArgumentNullException.ThrowIfNull(text);
         _text = text;
         _logger = logger;
         Items = new ObservableCollection<NavItemViewModel>(pages.OrderBy(p => p.Order).Select(p => new NavItemViewModel(this, p, text[p.TitleKey])));
-        foreach (var item in Items)
-        {
-            item.Page.NavigationRequested += (_, page) => _ = NavigateAsync(page);
-        }
+        navigator.Requested += (_, page) => _ = NavigateAsync(page);
     }
 
     /// <summary>Sidebar.</summary>
@@ -47,13 +45,16 @@ public sealed partial class ShellViewModel : ObservableObject
         QuitRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>Whether a page has been opened (the window was shown at least once).</summary>
+    public bool IsStarted => Current is not null;
+
     /// <summary>Opens the first page.</summary>
     public Task StartAsync() => Items.Count > 0 ? NavigateAsync(Items[0].Page) : Task.CompletedTask;
 
     /// <summary>Opens a page of the given type (other pages link to each other).</summary>
     public Task NavigateAsync<TPage>()
         where TPage : PageViewModelBase =>
-        Items.FirstOrDefault(i => i.Page is TPage) is { } item ? NavigateAsync(item.Page) : Task.CompletedTask;
+        Items.FirstOrDefault(i => i.Entry.PageType == typeof(TPage)) is { } item ? NavigateAsync(item.Page) : Task.CompletedTask;
 
     /// <summary>Opens a page; a failing reload is shown on the page and logged.</summary>
     public async Task NavigateAsync(PageViewModelBase page)
@@ -61,7 +62,7 @@ public sealed partial class ShellViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(page);
         foreach (var item in Items)
         {
-            item.IsSelected = item.Page == page;
+            item.IsSelected = item.Entry.PageType == page.GetType();
         }
 
         Current = page;

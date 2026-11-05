@@ -47,7 +47,7 @@ public sealed class HistoryTests
         await h.Services.GetRequiredService<IPostStore>().SaveAsync(post, None);
         await h.Services.GetRequiredService<IPublishLog>().AddAsync(new PublishLogEntry(x.Id, PlatformCodes.X, post.Id, now.AddHours(-2), true), None);
 
-        var history = h.Services.GetServices<PageViewModelBase>().OfType<HistoryViewModel>().Single();
+        var history = h.Services.GetRequiredService<HistoryViewModel>();
         var view = new HistoryView { DataContext = history };
         await history.ActivateAsync();
         http.Requests.ShouldBeEmpty();

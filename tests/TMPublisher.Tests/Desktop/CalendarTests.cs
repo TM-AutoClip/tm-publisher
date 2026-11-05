@@ -106,7 +106,8 @@ public sealed class CalendarTests
         _ = post;
     }
 
-    private static T Page<T>(DesktopHarness h) => h.Services.GetServices<PageViewModelBase>().OfType<T>().Single();
+    private static T Page<T>(DesktopHarness h)
+        where T : notnull => h.Services.GetRequiredService<T>();
 
     private static async Task<DesktopHarness> OpenAsync()
     {

@@ -18,20 +18,20 @@ namespace TMPublisher.Desktop.ViewModels;
 /// sent, with the same checks the sender runs; X cost estimate; send now, schedule or keep as a draft.
 /// </summary>
 public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore groups, ITagSetStore tagSets, IPostStore posts, IPlatformDirectory platforms,
-    IPostScheduler scheduler, AppSession session, FileDialogs dialogs, TimeProvider clock, Localizer text, ILogger<ComposeViewModel> logger) : PageViewModelBase
+    IPostScheduler scheduler, AppSession session, FileDialogs dialogs, TimeProvider clock, Localizer text, ILogger<ComposeViewModel> logger) : PageViewModelBase, IPageInfo
 {
     private readonly Dictionary<string, string> _defaultTags = new(StringComparer.Ordinal);
     private Guid? _editing;
     private bool _refreshing;
 
     /// <inheritdoc />
-    public override string TitleKey => "nav.compose";
+    public static string TitleKey => "nav.compose";
 
     /// <inheritdoc />
-    public override string Glyph => "✎";
+    public static string Glyph => "✎";
 
     /// <inheritdoc />
-    public override int Order => 10;
+    public static int Order => 10;
 
     /// <summary>Files in order.</summary>
     public ObservableCollection<MediaItem> Media { get; } = [];

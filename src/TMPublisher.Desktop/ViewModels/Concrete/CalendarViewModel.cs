@@ -14,16 +14,16 @@ namespace TMPublisher.Desktop.ViewModels;
 /// is refused. Double-click opens the post in the compose screen.
 /// </summary>
 public sealed partial class CalendarViewModel(IPostStore posts, IAccountStore accounts, IPlatformDirectory platforms, IPostScheduler scheduler,
-    ComposeViewModel compose, TimeProvider clock, Localizer text, ILogger<CalendarViewModel> logger) : PageViewModelBase
+    ComposeViewModel compose, PageNavigator navigator, TimeProvider clock, Localizer text, ILogger<CalendarViewModel> logger) : PageViewModelBase, IPageInfo
 {
     /// <inheritdoc />
-    public override string TitleKey => "nav.calendar";
+    public static string TitleKey => "nav.calendar";
 
     /// <inheritdoc />
-    public override string Glyph => "▦";
+    public static string Glyph => "▦";
 
     /// <inheritdoc />
-    public override int Order => 20;
+    public static int Order => 20;
 
     /// <summary>Day cells (42 in the month view, 7 in the week view), Monday first.</summary>
     public ObservableCollection<CalendarDayViewModel> Days { get; } = [];
@@ -173,7 +173,7 @@ public sealed partial class CalendarViewModel(IPostStore posts, IAccountStore ac
         }
 
         await compose.EditAsync(item.Post).ConfigureAwait(true);
-        RequestNavigation(compose);
+        navigator.Open(compose);
     }
 
     /// <summary>Previous month or week.</summary>

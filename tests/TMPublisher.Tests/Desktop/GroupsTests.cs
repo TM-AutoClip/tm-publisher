@@ -29,7 +29,7 @@ public sealed class GroupsTests
         await store.SaveAsync(new Group { Name = "First", AccountIds = [a.Id] }, None);
         await store.SaveAsync(new Group { Name = "Second", AccountIds = [b.Id] }, None);
 
-        var page = h.Services.GetServices<PageViewModelBase>().OfType<GroupsViewModel>().Single();
+        var page = h.Services.GetRequiredService<GroupsViewModel>();
         await page.ActivateAsync();
         var first = page.Groups.Single(g => g.Name == "First");
         var second = page.Groups.Single(g => g.Name == "Second");

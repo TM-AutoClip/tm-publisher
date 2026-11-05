@@ -19,18 +19,18 @@ namespace TMPublisher.Desktop.ViewModels;
 /// read only when the user clicks "Fetch" (the X cost is shown on the button first).
 /// </summary>
 public sealed partial class HistoryViewModel(IPostStore posts, IAccountStore accounts, IPlatformDirectory platforms, IPublishLog log, QuotaChecker quotas,
-    StatsService stats, BrowserLauncher browser, TimeProvider clock, Localizer text, ILogger<HistoryViewModel> logger) : PageViewModelBase
+    StatsService stats, BrowserLauncher browser, TimeProvider clock, Localizer text, ILogger<HistoryViewModel> logger) : PageViewModelBase, IPageInfo
 {
     private IReadOnlyList<StatsBatch> _plan = [];
 
     /// <inheritdoc />
-    public override string TitleKey => "nav.history";
+    public static string TitleKey => "nav.history";
 
     /// <inheritdoc />
-    public override string Glyph => "≡";
+    public static string Glyph => "≡";
 
     /// <inheritdoc />
-    public override int Order => 30;
+    public static int Order => 30;
 
     /// <summary>Posts, newest first.</summary>
     public ObservableCollection<HistoryRowViewModel> Rows { get; } = [];

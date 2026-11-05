@@ -16,16 +16,16 @@ namespace TMPublisher.Desktop.ViewModels;
 /// <summary>Settings: language, notifications, autostart, protection (keyring / master password), backup and restore, about.</summary>
 public sealed partial class SettingsViewModel(AppSession session, UiPreferencesFile preferences, IAutostart autostart, Vault vault, BackupService backup,
     UiMasterPassword masterPassword, FileDialogs dialogs, IAppPaths paths, IPostScheduler scheduler, Localizer text, ILogger<SettingsViewModel> logger)
-    : PageViewModelBase
+    : PageViewModelBase, IPageInfo
 {
     /// <inheritdoc />
-    public override string TitleKey => "nav.settings";
+    public static string TitleKey => "nav.settings";
 
     /// <inheritdoc />
-    public override string Glyph => "⚙";
+    public static string Glyph => "⚙";
 
     /// <inheritdoc />
-    public override int Order => 90;
+    public static int Order => 90;
 
     /// <summary>Languages.</summary>
     public IReadOnlyList<LanguageOption> Languages { get; } = [new("en", "English"), new("tr", "Türkçe")];

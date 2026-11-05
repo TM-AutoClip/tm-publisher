@@ -51,13 +51,13 @@ public sealed class AccountFlowTests
         var secrets = await h.Services.GetRequiredService<ICredentialStore>().GetAsync(account.Id, CancellationToken.None);
         secrets[CredentialKeys.AccessToken].ShouldBe("good-token");
 
-        var accounts = h.Services.GetServices<PageViewModelBase>().OfType<AccountsViewModel>().Single();
+        var accounts = h.Services.GetRequiredService<AccountsViewModel>();
         await accounts.ActivateAsync();
         var row = accounts.Rows.Single();
         await accounts.TestCommand.ExecuteAsync(row);
         row.TestResult.ShouldContain("tester");
 
-        var groups = h.Services.GetServices<PageViewModelBase>().OfType<GroupsViewModel>().Single();
+        var groups = h.Services.GetRequiredService<GroupsViewModel>();
         await groups.ActivateAsync();
         groups.Name = "Main";
         await groups.SaveAsync();

@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Desktop.Composition;
 using TMPublisher.Desktop.Localization;
+using TMPublisher.Desktop.Logging;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
 using TMPublisher.Desktop.ViewModels;
@@ -17,16 +18,15 @@ namespace TMPublisher.Desktop.Startup;
 
 /// <summary>
 /// Startup flow: first run (language → new start or restore) · unlock (automatic keyring, or master password) · main window + tray +
-/// startup tasks. Closing the main window keeps the app running in the tray (minimizes on Linux, where a tray host is not guaranteed);
-/// the app ends with Quit (tray menu or the sidebar) or when the operating system shuts down or logs off.
+/// startup tasks. Closing the main window keeps the app running in the tray: the window is closed and released there and made again when
+/// opened (<see cref="MainWindowHost"/>; it minimizes on Linux, where a tray host is not guaranteed). The app ends with Quit (tray menu or
+/// the sidebar) or when the operating system shuts down or logs off.
 /// </summary>
 public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer text, UiPreferencesFile preferences, AppSession session,
-    WindowHost windows, TrayHost tray, IOsModule os, ILogger<AppStartup> logger)
+    WindowHost windows, MainWindowHost main, TrayHost tray, IOsModule os, ILogger<AppStartup> logger)
 {
     private IClassicDesktopStyleApplicationLifetime? _desktop;
-    private Window? _main;
     private ShellViewModel? _shell;
-    private bool _quitting;
 
     /// <summary>Runs the flow.</summary>
     public void Run(IClassicDesktopStyleApplicationLifetime desktop, bool startHidden)
@@ -50,21 +50,20 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         }
     }
 
-    /// <summary>Shows and activates the main window (tray, second start).</summary>
+    /// <summary>Shows and activates the main window, making it again if it was released to the tray (tray, second start).</summary>
     public void ShowMainWindow() => Dispatcher.UIThread.Post(() =>
     {
-        if (_main is null)
+        if (_shell is not { } shell)
         {
             return;
         }
 
-        _main.Show();
-        if (_main.WindowState == WindowState.Minimized)
+        main.Show();
+        if (!shell.IsStarted)
         {
-            _main.WindowState = WindowState.Normal;
+            // Started in the tray: the first page is opened (and its data read) only now.
+            _ = shell.StartAsync();
         }
-
-        _main.Activate();
     });
 
     /// <summary>
@@ -84,7 +83,7 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
     /// <summary>Ends the app.</summary>
     public void Quit()
     {
-        _quitting = true;
+        main.BeginQuit();
         logger.LogInformation("Quit requested");
         _desktop?.Shutdown();
     }
@@ -130,7 +129,7 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         window.Icon = AppIcon();
         window.Closed += (_, _) =>
         {
-            if (_main is null && windows.Active == window)
+            if (_shell is null && windows.Active == window)
             {
                 // The first-run or unlock window was closed without finishing: nothing to run.
                 Quit();
@@ -161,42 +160,15 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         tray.Create(ShowMainWindow, Quit);
         var shell = services.GetRequiredService<ShellViewModel>();
         _shell = shell;
-        var window = new MainWindow { DataContext = shell, Icon = AppIcon() };
         shell.QuitRequested += (_, _) => Quit();
-        window.Closing += (_, e) =>
-        {
-            if (_quitting)
-            {
-                return;
-            }
-
-            if (e.CloseReason is WindowCloseReason.OSShutdown or WindowCloseReason.ApplicationShutdown)
-            {
-                // Windows logoff / restart / update, or the app itself ending: never refuse it ("TM Publisher is preventing shutdown").
-                _quitting = true;
-                logger.LogInformation("Closing for {Reason}", e.CloseReason);
-                return;
-            }
-
-            e.Cancel = true;
-            if (os.TrayIsReliable && tray.HasIcon)
-            {
-                window.Hide();
-            }
-            else
-            {
-                window.WindowState = WindowState.Minimized;
-            }
-        };
-        _main = window;
-        windows.Active = window;
-        _desktop!.MainWindow = window;
+        main.Configure(() => new MainWindow { DataContext = shell, Icon = AppIcon() }, () => os.TrayIsReliable && tray.HasIcon,
+            window => _desktop!.MainWindow = window);
         if (!startHidden)
         {
-            window.Show();
+            main.Show();
+            await shell.StartAsync().ConfigureAwait(true);
         }
 
-        await shell.StartAsync().ConfigureAwait(true);
         foreach (var task in services.GetServices<IStartupTask>())
         {
             try
@@ -208,6 +180,13 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
                 logger.LogError(ex, "Startup task {Task} failed", task.GetType().Name);
                 shell.Status = text.Format("startup.task_failed", ex.Message);
             }
+        }
+
+        if (startHidden)
+        {
+            // Start-up garbage (database model, first reads) is not needed in the tray: one compacting collection, then the log line.
+            MainWindowHost.Compact();
+            MemoryUse.LogTrayEntry(logger, "started in the tray");
         }
     }
 

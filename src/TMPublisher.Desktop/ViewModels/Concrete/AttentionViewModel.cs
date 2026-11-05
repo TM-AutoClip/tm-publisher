@@ -13,7 +13,7 @@ namespace TMPublisher.Desktop.ViewModels;
 /// Posts waiting for the user: missed (the computer was off at the time), blocked (a check failed before sending) and stopped (a target
 /// failed while sending). Nothing here is sent without a click.
 /// </summary>
-public sealed partial class AttentionViewModel : PageViewModelBase
+public sealed partial class AttentionViewModel : PageViewModelBase, IPageInfo
 {
     private readonly IPostStore _posts;
     private readonly IAccountStore _accounts;
@@ -39,13 +39,13 @@ public sealed partial class AttentionViewModel : PageViewModelBase
     }
 
     /// <inheritdoc />
-    public override string TitleKey => "nav.attention";
+    public static string TitleKey => "nav.attention";
 
     /// <inheritdoc />
-    public override string Glyph => "!";
+    public static string Glyph => "!";
 
     /// <inheritdoc />
-    public override int Order => 15;
+    public static int Order => 15;
 
     /// <summary>Waiting posts, oldest first.</summary>
     public ObservableCollection<AttentionRowViewModel> Rows { get; } = [];

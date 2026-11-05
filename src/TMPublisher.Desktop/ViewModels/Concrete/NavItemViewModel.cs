@@ -3,17 +3,20 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace TMPublisher.Desktop.ViewModels;
 
-/// <summary>A sidebar entry.</summary>
-public sealed partial class NavItemViewModel(ShellViewModel shell, PageViewModelBase page, string title) : ObservableObject
+/// <summary>A sidebar entry. The page behind it is created the first time it is opened.</summary>
+public sealed partial class NavItemViewModel(ShellViewModel shell, PageEntry entry, string title) : ObservableObject
 {
-    /// <summary>Page.</summary>
-    public PageViewModelBase Page { get; } = page;
+    /// <summary>The registered page.</summary>
+    public PageEntry Entry { get; } = entry;
+
+    /// <summary>The page (created on first use, then the same instance).</summary>
+    public PageViewModelBase Page => Entry.Create();
 
     /// <summary>Title in the current language.</summary>
     public string Title { get; } = title;
 
     /// <summary>Glyph.</summary>
-    public string Glyph => Page.Glyph;
+    public string Glyph => Entry.Glyph;
 
     /// <summary>Whether this page is shown.</summary>
     [ObservableProperty]

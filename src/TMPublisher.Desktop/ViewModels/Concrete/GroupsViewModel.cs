@@ -10,18 +10,18 @@ namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>Groups: a name and an ordered list of accounts. A post goes to a group or to accounts picked by hand; never to nobody.</summary>
 public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore accounts, IPlatformDirectory platforms, Localizer text,
-    ILogger<GroupsViewModel> logger) : PageViewModelBase
+    ILogger<GroupsViewModel> logger) : PageViewModelBase, IPageInfo
 {
     private int _loads;
 
     /// <inheritdoc />
-    public override string TitleKey => "nav.groups";
+    public static string TitleKey => "nav.groups";
 
     /// <inheritdoc />
-    public override string Glyph => "👥";
+    public static string Glyph => "👥";
 
     /// <inheritdoc />
-    public override int Order => 50;
+    public static int Order => 50;
 
     /// <summary>Groups.</summary>
     public ObservableCollection<Group> Groups { get; } = [];

@@ -10,16 +10,16 @@ namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>Connected accounts: add (connection window), test, connect again, remove.</summary>
 public sealed partial class AccountsViewModel(IAccountStore accounts, IPlatformDirectory platforms, AccountService service, Func<ConnectViewModel> connect,
-    TimeProvider clock, Localizer text, ILogger<AccountsViewModel> logger) : PageViewModelBase
+    TimeProvider clock, Localizer text, ILogger<AccountsViewModel> logger) : PageViewModelBase, IPageInfo
 {
     /// <inheritdoc />
-    public override string TitleKey => "nav.accounts";
+    public static string TitleKey => "nav.accounts";
 
     /// <inheritdoc />
-    public override string Glyph => "👤";
+    public static string Glyph => "👤";
 
     /// <inheritdoc />
-    public override int Order => 40;
+    public static int Order => 40;
 
     /// <summary>Accounts.</summary>
     public ObservableCollection<AccountRowViewModel> Rows { get; } = [];

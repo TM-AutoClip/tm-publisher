@@ -8,16 +8,16 @@ using TMPublisher.Desktop.Localization;
 namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>Default tags per platform: they fill the compose form (each post can still change them).</summary>
-public sealed partial class TagSetsViewModel(ITagSetStore store, IPlatformDirectory platforms, Localizer text) : PageViewModelBase
+public sealed partial class TagSetsViewModel(ITagSetStore store, IPlatformDirectory platforms, Localizer text) : PageViewModelBase, IPageInfo
 {
     /// <inheritdoc />
-    public override string TitleKey => "nav.tags";
+    public static string TitleKey => "nav.tags";
 
     /// <inheritdoc />
-    public override string Glyph => "#";
+    public static string Glyph => "#";
 
     /// <inheritdoc />
-    public override int Order => 60;
+    public static int Order => 60;
 
     /// <summary>One row per platform.</summary>
     public ObservableCollection<TagSetRowViewModel> Rows { get; } = [];
