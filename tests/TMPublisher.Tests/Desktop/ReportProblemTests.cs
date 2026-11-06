@@ -26,14 +26,14 @@ public sealed class ReportProblemTests
     }
 
     [Fact]
-    public void PrepareLogsMakesTheZipInReportsAndShowsIt()
+    public async Task PrepareLogsMakesTheZipInReportsAndShowsIt()
     {
         var (h, os, _) = Make();
         using var harness = h;
         h.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Test").LogInformation("a line for the zip");
         var model = h.Services.GetRequiredService<ReportProblemViewModel>();
 
-        model.PrepareLogsCommand.Execute(null);
+        await model.PrepareLogsCommand.ExecuteAsync(null);
 
         model.ZipPath.ShouldNotBeNull();
         Path.GetDirectoryName(model.ZipPath).ShouldBe(h.Paths.ReportDirectory);

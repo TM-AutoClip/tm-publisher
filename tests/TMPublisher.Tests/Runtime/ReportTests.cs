@@ -91,4 +91,63 @@ public sealed class ReportTests
         text.ShouldContain("Interface language: tr");
         text.ShouldNotContain(LogScrubber.Home);
     }
+
+    [Fact]
+    public void OldVersionLogFilesNeverGoIntoTheZip()
+    {
+        using var paths = new TempPaths();
+        var logs = Directory.CreateDirectory(paths.LogDirectory).FullName;
+        File.WriteAllText(Path.Combine(logs, "tmpublisher-20261106.log"), "Post 3 blocked before sending: X · My Account Name: too long\n");
+        File.WriteAllText(Path.Combine(logs, "tmpublisher-scheduler-20261105.log"), "old\n");
+        File.WriteAllText(Path.Combine(logs, "app-2026-11-06.log"), "new\n");
+
+        LogBundle.LogFiles(logs, DateOnly.FromDateTime(Now.DateTime)).Select(Path.GetFileName).ShouldBe(["app-2026-11-06.log"]);
+        var zip = LogBundle.Create(logs, Path.Combine(paths.DataDirectory, "reports"), "tm-publisher", "x", Now);
+        using var archive = ZipFile.OpenRead(zip);
+        archive.Entries.Select(e => e.FullName).Order(StringComparer.Ordinal).ShouldBe(["logs/app-2026-11-06.log", "system.txt"]);
+    }
+
+    [Fact]
+    public void ZipsOfTheSameMinuteArePrunedInTheOrderTheyWereMade()
+    {
+        using var paths = new TempPaths();
+        var logs = Directory.CreateDirectory(paths.LogDirectory).FullName;
+        var reports = Directory.CreateDirectory(Path.Combine(paths.DataDirectory, "reports")).FullName;
+        File.WriteAllText(Path.Combine(reports, "tm-publisher-logs-20261106-1430.zip"), "old");
+        for (var i = 2; i <= 10; i++)
+        {
+            File.WriteAllText(Path.Combine(reports, $"tm-publisher-logs-20261106-1430-{i}.zip"), "old");
+        }
+
+        var zip = LogBundle.Create(logs, reports, "tm-publisher", "x", Now);
+
+        Path.GetFileName(zip).ShouldBe("tm-publisher-logs-20261106-1430-11.zip");
+        Directory.GetFiles(reports).Select(Path.GetFileName).Order(StringComparer.Ordinal).ShouldBe(
+        [
+            "tm-publisher-logs-20261106-1430-10.zip", "tm-publisher-logs-20261106-1430-11.zip", "tm-publisher-logs-20261106-1430-7.zip",
+            "tm-publisher-logs-20261106-1430-8.zip", "tm-publisher-logs-20261106-1430-9.zip",
+        ]);
+    }
+
+    [Fact]
+    public void AFailedZipLeavesNothingToAttach()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return; // The failure is made with a file opened without sharing, which Windows enforces for every reader.
+        }
+
+        using var paths = new TempPaths();
+        var logs = Directory.CreateDirectory(paths.LogDirectory).FullName;
+        var reports = Path.Combine(paths.DataDirectory, "reports");
+        var held = Path.Combine(logs, "app-2026-11-06.log");
+        File.WriteAllText(held, "line\n");
+
+        using (new FileStream(held, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Should.Throw<IOException>(() => LogBundle.Create(logs, reports, "tm-publisher", "x", Now));
+        }
+
+        Directory.GetFiles(reports).ShouldBeEmpty();
+    }
 }

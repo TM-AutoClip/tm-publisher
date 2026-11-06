@@ -37,14 +37,16 @@ public sealed partial class ReportProblemViewModel(AppPaths paths, Localizer tex
     /// <summary>The <c>system.txt</c> text: program, version, system, language, drawing mode, optional programs. No settings, keys or names.</summary>
     public string Details => SystemReport.Text("TM Publisher", Facts());
 
-    /// <summary>Makes the zip and shows it in the file manager.</summary>
+    /// <summary>Makes the zip (off the window's thread: up to a week of files is read and masked) and shows it in the file manager.</summary>
     [RelayCommand]
-    private void PrepareLogs()
+    private async Task PrepareLogsAsync()
     {
         try
         {
-            var zip = LogBundle.Create(paths.LogDirectory, paths.ReportDirectory, ReportLinks.ZipName, Details, clock.GetLocalNow(),
-                (name, ex) => logger.LogWarning(ex, "An older report zip {File} could not be removed", name));
+            var details = Details;
+            var now = clock.GetLocalNow();
+            var zip = await Task.Run(() => LogBundle.Create(paths.LogDirectory, paths.ReportDirectory, ReportLinks.ZipName, details, now,
+                (name, ex) => logger.LogWarning(ex, "A report zip file {File} could not be removed", name))).ConfigureAwait(true);
             ZipPath = zip;
             logger.LogInformation("Logs zip made: {File} ({Kilobytes} KB)", Path.GetFileName(zip), new FileInfo(zip).Length / 1024);
             Status = text.Format("report.zip_ready", LogScrubber.Scrub(zip));
