@@ -382,5 +382,22 @@
   "scheduler.old_version": "Bu bilgisayarda TM Publisher'ın eski bir sürümü hâlâ çalışıyor. Onu kapatın (tepsi simgesi → Çık) ve TM Publisher'ı yeniden açın; o zamana kadar zamanlanmış gönderiler gönderilmez.",
   "restore.scheduler_busy": "Şu anda bir gönderi gönderiliyor; bitince yedeği yeniden geri yükleyin.",
   "window.unsaved_close": "Bu gönderi kaydedilmedi. Kaydedin (taslak ya da zamanlanmış olarak) ya da silmek için pencereyi yeniden kapatın.",
-  "attention.changed": "Bu gönderi bu arada değişti (gönderilmiş olabilir), bu yüzden bir şey yapılmadı; liste güncel durumunu gösteriyor."
+  "attention.changed": "Bu gönderi bu arada değişti (gönderilmiş olabilir), bu yüzden bir şey yapılmadı; liste güncel durumunu gösteriyor.",
+  "shell.report_problem": "Hata bildir",
+  "report.title": "Hata bildir",
+  "report.nothing_sent": "Hiçbir şey kendiliğinden gönderilmez. Neyi paylaşacağınıza siz karar verirsiniz: günlük zip dosyası siz ekleyene kadar bu bilgisayarda kalır.",
+  "report.contents": "Günlük zip dosyasında şunlar var:",
+  "report.contents.logs": "• son 7 günün günlük dosyaları (ev klasörü, e-posta adresleri ve anahtarlar gizlenir)",
+  "report.contents.system": "• system.txt: program sürümü, işletim sistemi, mimari, .NET, arayüz dili, çizim kipi, hangi yardımcı programların olduğu",
+  "report.contents.never": "Asla: ayarlarınız, anahtarlar, parolalar, veritabanı, hesap adları ya da gönderi metinleri.",
+  "report.prepare": "Günlükleri hazırla",
+  "report.github": "GitHub'da bildir",
+  "report.copy": "Bilgileri kopyala",
+  "report.close": "Kapat",
+  "report.github_hint": "GitHub'da bildir, hata formunu tarayıcınızda sürüm ve sistem bilgisi dolu olarak açar. Ne olduğunu yazın ve günlük zip dosyasını forma sürükleyin.",
+  "report.zip_ready": "Günlük zip dosyası hazır: {0}",
+  "report.zip_ready_no_folder": "Günlük zip dosyası hazır ama klasör açılamadı. Burada: {0}",
+  "report.github_opened": "Hata formu tarayıcınızda açıldı. Günlük zip dosyasını forma sürükleyin.",
+  "report.github_opened_no_zip": "Hata formu tarayıcınızda açıldı. Günlükleri eklemek isterseniz önce \"Günlükleri hazırla\"yı kullanın.",
+  "report.copied": "Bilgiler kopyalandı."
 }

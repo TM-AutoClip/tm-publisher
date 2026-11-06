@@ -3,7 +3,7 @@ using TMPublisher.Storage.Keys;
 
 namespace TMPublisher.Desktop.Os;
 
-/// <summary>Windows: DPAPI key protection, Run-key autostart of the background scheduler.</summary>
+/// <summary>Windows: DPAPI key protection, Run-key autostart of the background scheduler, Explorer for "show the file".</summary>
 public sealed class WindowsOsModule : IOsModule
 {
     /// <inheritdoc />
@@ -14,5 +14,6 @@ public sealed class WindowsOsModule : IOsModule
     {
         services.AddSingleton<IKeyProtector, DpapiKeyProtector>();
         services.AddSingleton<IAutostart, WindowsAutostart>();
+        services.AddSingleton<IFileReveal, WindowsFileReveal>();
     }
 }

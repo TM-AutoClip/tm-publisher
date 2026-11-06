@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using TMPublisher.Desktop.ViewModels;
 
 namespace TMPublisher.Desktop.Views;
 
@@ -6,5 +7,15 @@ namespace TMPublisher.Desktop.Views;
 public sealed partial class MainWindow : Window
 {
     /// <summary>Creates.</summary>
-    public MainWindow() => InitializeComponent();
+    public MainWindow()
+    {
+        InitializeComponent();
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is ShellViewModel shell)
+            {
+                shell.ShowReportProblem = model => new ReportProblemWindow { DataContext = model }.ShowDialog(this);
+            }
+        };
+    }
 }

@@ -32,6 +32,9 @@ public sealed class AppPaths : IAppPaths
     /// <inheritdoc />
     public string LogDirectory => Path.Combine(DataDirectory, "logs");
 
+    /// <summary>Problem report zips the user asked for (<c>reports/</c>); nothing in it is sent anywhere by the program.</summary>
+    public string ReportDirectory => Path.Combine(DataDirectory, "reports");
+
     /// <summary>Plain preferences readable before the database is unlocked (only the interface language).</summary>
     public string PreferencesFile => Path.Combine(DataDirectory, "preferences.json");
 

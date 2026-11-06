@@ -97,6 +97,9 @@ public static class DesktopServices
         // Desktop.
         services.AddSingleton<AppSession>();
         services.AddSingleton<BrowserLauncher>();
+        services.AddSingleton<IUrlOpener>(s => s.GetRequiredService<BrowserLauncher>());
+        services.AddTransient<ReportProblemViewModel>();
+        services.AddSingleton<Func<ReportProblemViewModel>>(s => s.GetRequiredService<ReportProblemViewModel>);
         services.AddSingleton<WindowHost>();
         services.AddSingleton<MainWindowHost>();
         services.AddSingleton<FileDialogs>();

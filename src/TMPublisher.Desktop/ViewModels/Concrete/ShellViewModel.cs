@@ -12,17 +12,20 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly Localizer _text;
     private readonly ILogger<ShellViewModel> _logger;
     private readonly TimeProvider _clock;
+    private readonly Func<ReportProblemViewModel> _report;
     private readonly List<PageViewModelBase> _opened = [];
     private DateTimeOffset? _warnedAt;
 
     /// <summary>Builds the sidebar from every registered page (the pages themselves are created when first opened).</summary>
-    public ShellViewModel(IEnumerable<PageEntry> pages, PageNavigator navigator, Localizer text, TimeProvider clock, ILogger<ShellViewModel> logger)
+    public ShellViewModel(IEnumerable<PageEntry> pages, PageNavigator navigator, Localizer text, TimeProvider clock, Func<ReportProblemViewModel> report,
+        ILogger<ShellViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(navigator);
         ArgumentNullException.ThrowIfNull(text);
         _text = text;
         _logger = logger;
         _clock = clock;
+        _report = report;
         Items = new ObservableCollection<NavItemViewModel>(pages.OrderBy(p => p.Order).Select(p => new NavItemViewModel(this, p, text[p.TitleKey])));
         navigator.Requested += (_, page) => _ = NavigateAsync(page);
     }
@@ -38,8 +41,22 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     public partial string Status { get; set; } = string.Empty;
 
+    /// <summary>Shows the "Report a problem" dialog (set by the main window).</summary>
+    public Func<ReportProblemViewModel, Task>? ShowReportProblem { get; set; }
+
     /// <summary>The user chose "Close" in the window (the window program ends; the background scheduler keeps sending).</summary>
     public event EventHandler? QuitRequested;
+
+    /// <summary>Opens the "Report a problem" dialog (nothing is sent from there by the program).</summary>
+    [RelayCommand]
+    private async Task ReportProblemAsync()
+    {
+        _logger.LogInformation("Report a problem opened");
+        if (ShowReportProblem is { } show)
+        {
+            await show(_report()).ConfigureAwait(true);
+        }
+    }
 
     /// <summary>Closes the window program.</summary>
     [RelayCommand]
@@ -102,6 +119,7 @@ public sealed partial class ShellViewModel : ObservableObject
         try
         {
             await page.ActivateAsync().ConfigureAwait(true);
+            _logger.LogInformation("Page {Page} opened", page.GetType().Name);
         }
         catch (Exception ex)
         {

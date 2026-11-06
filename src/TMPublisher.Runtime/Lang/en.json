@@ -382,5 +382,22 @@
   "scheduler.old_version": "An older TM Publisher is still running on this computer. Quit it (tray icon → Quit) and open TM Publisher again; until then the scheduled posts are not sent.",
   "restore.scheduler_busy": "A post is being sent right now; restore again when it is done.",
   "window.unsaved_close": "This post is not saved. Save it (as a draft or scheduled), or close the window again to discard it.",
-  "attention.changed": "This post changed meanwhile (it may have been sent), so nothing was done; the list shows its current state."
+  "attention.changed": "This post changed meanwhile (it may have been sent), so nothing was done; the list shows its current state.",
+  "shell.report_problem": "Report a problem",
+  "report.title": "Report a problem",
+  "report.nothing_sent": "Nothing is sent automatically. You decide what to share: the logs zip stays on this computer until you attach it yourself.",
+  "report.contents": "The logs zip contains:",
+  "report.contents.logs": "• the log files of the last 7 days (home folder, e-mail addresses and tokens are masked)",
+  "report.contents.system": "• system.txt: program version, operating system, architecture, .NET, interface language, drawing mode, which helper programs are there",
+  "report.contents.never": "Never: your settings, keys, passwords, the database, account names or post texts.",
+  "report.prepare": "Prepare logs",
+  "report.github": "Report on GitHub",
+  "report.copy": "Copy details",
+  "report.close": "Close",
+  "report.github_hint": "Report on GitHub opens the bug form in your browser with the version and system filled in. Describe what happened and drag the logs zip into the form.",
+  "report.zip_ready": "The logs zip is ready: {0}",
+  "report.zip_ready_no_folder": "The logs zip is ready, but the folder could not be opened. Find it here: {0}",
+  "report.github_opened": "The bug form is open in your browser. Drag the logs zip into it.",
+  "report.github_opened_no_zip": "The bug form is open in your browser. Use \"Prepare logs\" first if you want to attach the logs.",
+  "report.copied": "The details were copied."
 }

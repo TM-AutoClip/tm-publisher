@@ -94,6 +94,7 @@ public sealed class MainWindowHostTests
         }).ToList();
 
         var shell = new ShellViewModel(entries, h.Services.GetRequiredService<PageNavigator>(), h.Services.GetRequiredService<Localizer>(), TimeProvider.System,
+            h.Services.GetRequiredService<Func<ReportProblemViewModel>>(),
             NullLogger<ShellViewModel>.Instance);
 
         shell.Items.Count.ShouldBe(8);

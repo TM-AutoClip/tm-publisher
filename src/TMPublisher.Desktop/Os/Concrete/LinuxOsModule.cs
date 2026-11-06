@@ -4,7 +4,7 @@ using TMPublisher.Storage.Keys;
 namespace TMPublisher.Desktop.Os;
 
 /// <summary>
-/// Linux: Secret Service key protection (secret-tool), XDG autostart of the background scheduler.
+/// Linux: Secret Service key protection (secret-tool), XDG autostart of the background scheduler, xdg-open for "show the file".
 /// </summary>
 public sealed class LinuxOsModule : IOsModule
 {
@@ -17,5 +17,6 @@ public sealed class LinuxOsModule : IOsModule
         services.AddSingleton<ICommandRunner, ProcessCommandRunner>();
         services.AddSingleton<IKeyProtector, SecretServiceKeyProtector>();
         services.AddSingleton<IAutostart, LinuxAutostart>();
+        services.AddSingleton<IFileReveal, LinuxFileReveal>();
     }
 }

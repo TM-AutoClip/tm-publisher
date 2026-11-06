@@ -1,0 +1,31 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TMPublisher.Desktop.ViewModels"
+        xmlns:l="using:TMPublisher.Desktop.Localization"
+        x:Class="TMPublisher.Desktop.Views.ReportProblemWindow"
+        x:DataType="vm:ReportProblemViewModel"
+        Title="{l:Tr report.title}"
+        Width="620" SizeToContent="Height" MinWidth="460" CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="22" Spacing="12">
+    <TextBlock Text="{l:Tr report.title}" Classes="h1" />
+    <Border Background="{DynamicResource tm-accent-soft}" CornerRadius="{DynamicResource tm-radius-sm}" Padding="12,8">
+      <TextBlock Text="{l:Tr report.nothing_sent}" TextWrapping="Wrap" FontWeight="SemiBold" />
+    </Border>
+    <TextBlock Text="{l:Tr report.contents}" TextWrapping="Wrap" />
+    <StackPanel Spacing="2" Margin="12,0,0,0">
+      <TextBlock Text="{l:Tr report.contents.logs}" TextWrapping="Wrap" />
+      <TextBlock Text="{l:Tr report.contents.system}" TextWrapping="Wrap" />
+      <TextBlock Text="{l:Tr report.contents.never}" TextWrapping="Wrap" Classes="muted" />
+    </StackPanel>
+    <TextBlock Text="{Binding ReportFolder}" Classes="small" TextWrapping="Wrap" />
+    <WrapPanel Orientation="Horizontal">
+      <Button Classes="accent" Content="{l:Tr report.prepare}" Command="{Binding PrepareLogsCommand}" Margin="0,0,8,8" />
+      <Button Content="{l:Tr report.github}" Command="{Binding ReportOnGitHubCommand}" Margin="0,0,8,8" />
+      <Button Content="{l:Tr report.copy}" Command="{Binding CopyDetailsCommand}" Margin="0,0,8,8" />
+      <Button Content="{l:Tr report.close}" Name="CloseButton" Margin="0,0,8,8" />
+    </WrapPanel>
+    <TextBlock Text="{l:Tr report.github_hint}" TextWrapping="Wrap" Classes="small" />
+    <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+  </StackPanel>
+</Window>

@@ -21,6 +21,12 @@
             <TextBlock Text="{l:Tr shell.quit}" />
           </StackPanel>
         </Button>
+        <Button DockPanel.Dock="Bottom" Classes="nav" Command="{Binding ReportProblemCommand}" Margin="8,2" Name="ReportProblemButton">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="⚑" Width="20" TextAlignment="Center" />
+            <TextBlock Text="{l:Tr shell.report_problem}" />
+          </StackPanel>
+        </Button>
         <ItemsControl ItemsSource="{Binding Items}" Margin="8,0">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:NavItemViewModel">
