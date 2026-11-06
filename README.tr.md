@@ -27,8 +27,8 @@ Desteklenenler: YouTube · X · TikTok · Instagram · Facebook Sayfası · Thre
   o yayınlanır.
 - **Gruplar.** Kayıtlı bir hesap grubuna kendi sırasıyla gönderin ya da hesapları elle seçin. Gönderi asla hiçbir yere
   gitmeden kalmaz.
-- **Planlama.** Küçük bir arka plan zamanlayıcısı gönderilerinizi zamanında gönderir, pencere kapalıyken de (bkz.
-  [Arka planda ne çalışır](#arka-planda-ne-çalışır)). Tek zamanlayıcı, yoklama yok. Hesaplara tek tek gönderilir; biri hata
+- **Planlama.** Gönderileriniz zamanında gider, program kapalıyken de: sisteminizin zamanlayıcısı TM Publisher'ı kısa bir süre için
+  başlatır, o gönderir ve kapanır (bkz. [Arka planda ne çalışır](#arka-planda-ne-çalışır)). Yoklama yok. Hesaplara tek tek gönderilir; biri hata
   verirse kalanlar kararınızı bekler (yeniden dene, atla ve devam et, iptal). En çok 5 dakika gecikmiş gönderi yine gider;
   bilgisayar kapalıyken kaçırılan gönderi **Kararınızı bekleyen** sayfasında sizi bekler.
 - **Takvim.** Ay ve hafta görünümü; planlı bir gönderiyi başka bir güne sürükleyin.
@@ -44,31 +44,32 @@ Mesaj ya da yorum **okumaz**, e-posta göndermez.
 
 ## Arka planda ne çalışır
 
-TM Publisher aynı klasörde duran iki programdır:
+Gönderileriniz arasında hiçbir şey. TM Publisher tek bir program dosyasıdır (Windows'ta `TMPublisher.exe`, Linux'ta `tm-publisher`):
 
-| | Windows | Linux | Ne zaman çalışır |
-|---|---|---|---|
-| Pencere | `TMPublisher.exe` | `tm-publisher` | yalnız siz açıkken; kapatınca kapanır |
-| Arka plan zamanlayıcısı | `TMPublisherScheduler.exe` | `tm-publisher-scheduler` | her zaman: sıradaki gönderinin saatini bekler ve gönderir |
-
-Zamanlayıcı küçüktür: pencere kitaplığı yoktur, yerel koda derlenmiştir. 0.1.3 için gönderi beklerken ölçülen: Windows Görev
-Yöneticisi'nde yaklaşık 6 MB (çalışma kümesi 22 MB), Raspberry Pi 5'te yaklaşık 22 MB bellek. Bir gönderiyi gönderirken kısa bir
-süre daha fazla kullanır; bildirimi, pencere programının bildirim kapanınca kendiliğinden kapanan kısa ömürlü bir kopyası gösterir.
-
-- **Başlaması:** bilgisayarınızla birlikte (Ayarlar → **Arka plan zamanlayıcısı bilgisayarımla birlikte başlasın**, varsayılan
-  açık) ve pencereyi her açtığınızda. Bir veri klasörü için yalnız bir zamanlayıcı çalışır.
-- **Görmek ve yönetmek:** Ayarlar → **Arka plan zamanlayıcısı** çalışıp çalışmadığını ve sıradaki gönderiyi gösterir; Başlat,
-  Durdur, Duraklat ve Sürdür düğmeleri oradadır. Windows'ta bir de tepsi simgesi vardır: tıklayınca pencere açılır; sağ tıkta
-  Zamanlamayı duraklat / sürdür ve Çık.
-- **Durdurmak:** Ayarlar → **Durdur** ya da Windows'ta tepsi simgesi → **Çık (zamanlamayı durdur)**. Durdurulmuşken gönderi
-  gitmez; pencereyle ya da bilgisayarla yeniden başlar. Bilgisayarla başlamasın istiyorsanız ayarı kapatın. O an gönderilen
-  gönderi önce bitirilir.
-- **Duraklatmak** zamanlayıcıyı çalışır bırakır ama hiçbir şey göndermez; sürdürmeden önce saati 5 dakikadan fazla geçen
-  gönderiler sizi bekler.
-- **Ana parola:** veritabanını bir ana parolayla koruyorsanız (Linux'ta anahtarlık yoksa, örneğin Raspberry Pi'de, her zaman
-  böyledir) zamanlayıcı parolayı soramaz. Bilgisayar açıldıktan sonra TM Publisher'ı bir kez açıp kilidini açın: pencere anahtarı
-  zamanlayıcıya yalnız sizin kullanıcınızın açabildiği bir kanaldan verir (komut satırına ya da bir dosyaya asla yazılmaz). O
-  zamana kadar Ayarlar'da "Ana parola bekleniyor" yazar ve hiçbir şey gönderilmez.
+- **Pencere açıkken** zamanlanmış gönderileri saatinde pencere gönderir.
+- **Kapalıyken** sisteminizin zamanlayıcısı aynı dosyayı `--run-due` ile kısa bir süre için başlatır: veritabanını açar, saati
+  gelen her gönderiyi gönderir, sonraki başlatmayı ayarlar ve kapanır. Windows'ta bu, kullanıcınızın bir **Görev Zamanlayıcı**
+  görevidir (`TM Publisher <kod>`, Görev Zamanlayıcı Kitaplığı altında); Linux'ta bir **systemd kullanıcı zamanlayıcısı**
+  (`tm-publisher-<kod>.timer`, `~/.config/systemd/user` içinde). Yönetici izni gerekmez. Görev sıradaki gönderinin saatinde,
+  oturum açtıktan bir dakika sonra ve bir gönderinin saatinden sonra, bir çalıştırma sonrakini ayarlayana kadar 30 dakikada bir
+  başlar; bilgisayar kapalı ya da uykudayken kaçan başlatma, bilgisayar dönünce hemen yapılır. 5 dakikadan fazla gecikmiş gönderi
+  kendiliğinden gitmez: **Kararınızı bekleyen** sayfasında sizi bekler.
+- Böyle bir çalıştırmanın **bildirimlerini** (yayınlandı, başarısız, kaçırıldı) sağ alt köşede, son bildirim kapanınca kapanan
+  kısa ömürlü bir kopya gösterir.
+- **Ayarlar → TM Publisher kapalıyken de zamanlanmış gönderileri gönder** (varsayılan açık) görevi / zamanlayıcıyı yazar ya da
+  siler. Ayarlar → **Gönderme** şu an kimin gönderdiğini, sıradaki gönderiyi ve sistemin TM Publisher'ı ne zaman başlatacağını
+  gösterir. **Bir gönderiyi göndermek için bilgisayarı uykudan uyandır** (Windows, varsayılan kapalı) görevin bilgisayarı
+  uyandırmasına izin verir.
+- **Zamanlamayı duraklat** (Ayarlar → Gönderme) hem pencereyi hem çalıştırmaları durdurur: hiçbir şey gönderilmez; sürdürmeden önce
+  saati 5 dakikadan fazla geçen gönderiler sizi bekler.
+- Bir veri klasöründe aynı anda yalnız bir gönderici çalışır: pencere açıkken çalıştırma hemen kapanır, iki çalıştırma asla üst üste
+  gelmez.
+- **Ana parola:** çalıştırma parolayı soramaz; bu yüzden ana parolayla (Linux'ta anahtarlık yoksa, örneğin Raspberry Pi'de, her
+  zaman böyledir) program kapalıyken hiçbir şey gönderilmez. Bir gönderinin saati gelince bir bildirim TM Publisher'ı açmanızı bir
+  kez ister; kilidi açtığınızda gönderiyi pencere gönderir.
+- **systemd kullanıcı oturumu olmayan Linux:** TM Publisher onun yerine bir otomatik başlatma girdisi yazar
+  (`~/.config/autostart/tm-publisher-<kod>.desktop`); saati gelen gönderiler oturum açınca gönderilir ve Ayarlar bunu söyler. Program
+  kapalıyken gönderiler o zaman saatinde gitmez.
 
 ## Windows'a kurulum
 
@@ -79,12 +80,11 @@ Windows 10 ya da 11, 64 bit.
    ```powershell
    Get-FileHash .\TMPublisher-0.1.3-win-x64.zip -Algorithm SHA256
    ```
-3. Kalacağı bir yere açın, örneğin `%LOCALAPPDATA%\Programs` içine. İçinden `TMPublisher.exe`, `TMPublisherScheduler.exe` ve
-   `sqlite3mc.dll` bulunan bir `TM Publisher` klasörü çıkar; üçünü bir arada tutun. Otomatik başlatma tam bu klasöre bakar; yeri
-   ilk açılıştan önce seçin.
-4. `TMPublisher.exe`'ye çift tıklayın. Dosyalar kod imzalı olmadığından Windows **"Windows kişisel bilgisayarınızı korudu"**
-   (SmartScreen) uyarısını gösterir: **Ek bilgi**'ye, ardından **Yine de çalıştır**'a tıklayın. Zamanlayıcı için bir kez daha
-   sorabilir.
+3. Kalacağı bir yere açın, örneğin `%LOCALAPPDATA%\Programs` içine. İçinden tek bir program (`TMPublisher.exe`) ve belgeleri
+   bulunan bir `TM Publisher` klasörü çıkar. Görev Zamanlayıcı görevi tam bu dosyaya bakar; yeri ilk açılıştan önce seçin (sonra
+   taşırsanız taşınan programı bir kez açın, görevi yeniden yazar).
+4. `TMPublisher.exe`'ye çift tıklayın. Dosya kod imzalı olmadığından Windows **"Windows kişisel bilgisayarınızı korudu"**
+   (SmartScreen) uyarısını gösterir: **Ek bilgi**'ye, ardından **Yine de çalıştır**'a tıklayın.
 5. [Programı ilk kez açınca](#programı-ilk-kez-açınca) ile devam edin.
 
 Yönetici izni gerekmez; sisteme bir şey kurulmaz.
@@ -100,7 +100,7 @@ kullanın. Pencere ve bildirimler için bir masaüstü oturumu (X11 ya da XWayla
    ```sh
    sha256sum tm-publisher-0.1.3-linux-x64.tar.gz
    ```
-3. Kalacağı bir yere açın (programlar zaten çalıştırılabilir işaretli):
+3. Kalacağı bir yere açın (program zaten çalıştırılabilir işaretli):
    ```sh
    mkdir -p ~/.local/opt
    tar -xzf tm-publisher-0.1.3-linux-x64.tar.gz -C ~/.local/opt
@@ -119,13 +119,10 @@ kullanın. Pencere ve bildirimler için bir masaüstü oturumu (X11 ya da XWayla
 
 Notlar:
 
-- **Linux'ta tepsi simgesi yok:** zamanlayıcının yoktur (tepsi her masaüstünde bulunmaz). Pencereyi menünüzden ya da komut
-  satırından açın; Ayarlar → Arka plan zamanlayıcısı durumunu gösterir ve onu durdurur.
-- **Otomatik başlatma:** pencere `~/.config/autostart/tm-publisher.desktop` dosyasını yazar; XDG otomatik başlatma kuralına
-  uyan masaüstlerinde zamanlayıcı oturum açılınca başlar. Ayarlar'dan açıp kapatın.
-- **linux-x64:** bu sürümde x64 zamanlayıcısı yerel koda derlenmedi (bu yalnız bir x64 Linux makinesinde yapılabiliyor; sürüm
-  orada derlenmedi). Onun yerine kırpılmış, önceden derlenmiş tek dosyadır ve arm64'tekinin yaklaşık iki katı bellek kullanır
-  (arm64'te ölçüldü: 22 MB yerine yaklaşık 46 MB). Gerisi aynıdır.
+- **Kapalıyken gönderme** bir systemd kullanıcı zamanlayıcısıyla çalışır (bkz. [Arka planda ne çalışır](#arka-planda-ne-çalışır)).
+  Siz oturum açmışken çalışır; kimse oturum açmamışken de çalışsın istiyorsanız bir kez `loginctl enable-linger $USER` deyin.
+- Çalıştırma bildirimlerini yalnız masaüstü oturumunuzu biliyorsa gösterir (systemd kullanıcı ortamında `DISPLAY` /
+  `WAYLAND_DISPLAY`; çoğu masaüstü bunu ayarlar); yoksa yalnız günlüğe yazılır.
 
 ## Programı ilk kez açınca
 
@@ -134,7 +131,7 @@ Notlar:
 3. **Koruma:** varsayılan olarak veritabanı anahtarını bu bilgisayar (Windows) ya da anahtarlık (Linux) korur ve kendiliğinden
    açılır. Bunun yerine bir **ana parola** seçebilirsiniz; o zaman her açılışta sorulur. Unutulan ana parola kurtarılamaz,
    bu yüzden yedek alın.
-4. **Arka plan zamanlayıcısı bilgisayarımla birlikte başlasın** varsayılan olarak açıktır; planlı gönderiler pencere kapalıyken
+4. **TM Publisher kapalıyken de zamanlanmış gönderileri gönder** varsayılan olarak açıktır; planlı gönderiler program kapalıyken
    de zamanında gider. İsterseniz Ayarlar'dan kapatın.
 5. **Hesaplar** altında hesaplarınızı ekleyin (aşağıda), isterseniz **Gruplar** oluşturun, sonra **Yeni gönderi**'de ilk
    gönderinizi yazın.
@@ -168,25 +165,34 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 1. İsteğe bağlı: **Ayarlar → Yedek**'ten bir yedek alın.
 2. Eski sürümü durdurun:
    - **0.1.0–0.1.2'den:** tepsi menüsünden (**Çık**) ya da kenar çubuğunun altındaki **TM Publisher'dan çık** ile kapatın (pencereyi
-     kapatmak onu yalnız gizliyordu); ona giden eski kısayolları ve sabitlemeleri de kaldırın. Yeni zamanlayıcı aynı veri
-     klasöründe eski bir sürüm bulduğu sürece başlamaz ve hiçbir gönderiyi üstüne almaz; Windows'ta sonradan başlatılan eski sürüm
-     hemen kapanır. Linux'ta yeni zamanlayıcıdan sonra başlatılan eski sürüm, siz onu kapatana kadar gönderileri kendisi yollar
-     (yeni olan bekler) ve yeninin o anda gönderdiği bir gönderi "yarıda kaldı" olarak dönebilir. Bu yüzden önce eski sürümü kapatın.
-   - **0.1.3 ve sonrasından:** pencereyi kapatın ve zamanlayıcıyı durdurun (Ayarlar → **Durdur** ya da tepsi simgesi → **Çık**).
-3. Windows: yeni zip'i açın ve `TM Publisher` klasöründeki dosyaları değiştirin (aynı yer; otomatik başlatma çalışmaya devam eder).
-   Tek bir `TMPublisher-<sürüm>-win-x64.exe` olan 0.1.0–0.1.2'den geliyorsanız: yeni klasörü istediğiniz yere koyun, oradaki
-   `TMPublisher.exe`'yi başlatın ve eski exe'yi silin; otomatik başlatma kaydı yeni pencere açılınca yeni zamanlayıcıya taşınır.
-   Linux: yeni arşivi eski klasörün üzerine açın.
-4. Pencereyi başlatın. Verileriniz yerinde kalır.
+     kapatmak onu yalnız gizliyordu); ona giden eski kısayolları ve sabitlemeleri de kaldırın. Aynı veri klasöründe eski bir sürüm
+     çalıştığı sürece yeni sürüm hiçbir gönderi göndermez. Bu yüzden önce eski sürümü kapatın.
+   - **0.1.3–0.1.4'ten:** pencereyi kapatın ve zamanlayıcıdan çıkın (tepsi simgesi → **Çık** ya da Ayarlar → **Durdur**). Unutursanız
+     yeni sürüm açılınca ondan kapanmasını ister (gönderdiği bir gönderi varsa bitmesini bekler).
+3. Windows: yeni zip'i açın ve `TM Publisher` klasöründeki dosyaları değiştirin. 0.1.3–0.1.4'ten geliyorsanız oradaki
+   `TMPublisherScheduler.exe` ve `sqlite3mc.dll` dosyalarını silin; artık kullanılmıyorlar. Tek bir `TMPublisher-<sürüm>-win-x64.exe`
+   olan 0.1.0–0.1.2'den geliyorsanız: yeni klasörü istediğiniz yere koyun, oradaki `TMPublisher.exe`'yi başlatın ve eski exe'yi silin.
+   Linux: yeni arşivi eski klasörün üzerine açın ve oradaki `tm-publisher-scheduler` ile `libsqlite3mc.so` dosyalarını silin.
+4. Pencereyi başlatın. Verileriniz yerinde kalır. Eski otomatik başlatma kaydı (Windows Run anahtarı /
+   `~/.config/autostart/tm-publisher.desktop`) kendiliğinden silinir, Görev Zamanlayıcı görevi / systemd zamanlayıcısı yazılır.
 
 ## Kaldırma
 
-1. **Ayarlar**'da **Arka plan zamanlayıcısı bilgisayarımla birlikte başlasın**'ı kapatın (Windows'ta otomatik başlatma kaydını
-   siler, Linux'ta devre dışı bırakır), sonra oradan zamanlayıcıyı **Durdur**'un.
+1. **Ayarlar**'da **TM Publisher kapalıyken de zamanlanmış gönderileri gönder**'i kapatıp **Kaydet**'e basın: Görev Zamanlayıcı
+   görevi (Windows) ya da systemd zamanlayıcısı ve hizmeti (Linux) silinir.
 2. Pencereyi kapatın.
-3. `TM Publisher` klasörünü (Windows) ya da `tm-publisher` klasörünü (Linux) silin; Linux'ta
-   `~/.config/autostart/tm-publisher.desktop` dosyasını da silin.
-4. Verilerinizi de kaldırmak için aşağıdaki veri klasörünü silin. Bu geri alınamaz; gerekebilecekse önce yedek alın.
+3. `TM Publisher` klasörünü (Windows) ya da `tm-publisher` klasörünü (Linux) silin.
+4. Program zaten silindiyse sistem girdisini elle kaldırın:
+   - Windows: **Görev Zamanlayıcı**'yı açın, **Görev Zamanlayıcı Kitaplığı**'nı seçin, `TM Publisher <kod>` görevini silin; ya da
+     PowerShell'de: `Get-ScheduledTask -TaskName 'TM Publisher *' | Unregister-ScheduledTask -Confirm:$false`
+   - Linux:
+     ```sh
+     systemctl --user disable --now 'tm-publisher-*.timer'
+     rm ~/.config/systemd/user/tm-publisher-*.timer ~/.config/systemd/user/tm-publisher-*.service
+     rm -f ~/.config/autostart/tm-publisher-*.desktop ~/.config/autostart/tm-publisher.desktop
+     systemctl --user daemon-reload
+     ```
+5. Verilerinizi de kaldırmak için aşağıdaki veri klasörünü silin. Bu geri alınamaz; gerekebilecekse önce yedek alın.
    Linux'ta anahtarlık kullanıyorsanız anahtarlık uygulamanızdan (Seahorse, KWallet...) "TM Publisher database key" girdisini
    de silin.
 
@@ -198,14 +204,16 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 | Linux | `~/.local/share/tm-publisher` (ya da `$XDG_DATA_HOME/tm-publisher`) |
 
 İçinde: `publisher.db` (şifreli veritabanı), `key.json` (DPAPI, anahtarlık ya da ana parolanızla mühürlenmiş veritabanı
-anahtarı), `preferences.json` (yalnız arayüz dili), `logs/` (gün ve program başına bir dosya: pencere için `app-yyyy-MM-dd.log`,
-zamanlayıcı için `scheduler-…`, bildirimler için `notify-…`; 7 gün tutulur; asla anahtar ya da parola içermez), `reports/` (yalnız
-"Hata bildir" ile sizin yaptığınız günlük zip dosyaları), `scheduler-instance.lock` / `window-instance.lock` (bir veri klasörü için bir zamanlayıcı ve bir pencere),
-`scheduler-paused.txt` (yalnız zamanlama duraklatılmışken) ve `locks/` (bir hesabın anahtar yenilemesi asla aynı anda iki kez
-çalışmaz). Medya dosyaları sizin tuttuğunuz yerde kalır; yalnız yolları saklanır.
+anahtarı), `preferences.json` (yalnız arayüz dili), `logs/` (gün ve tür başına bir dosya: pencere için `app-yyyy-MM-dd.log`, sistem
+zamanlayıcısının başlattığı çalıştırmalar için `run-…`, bildirimler için `notify-…`, 0.1.3–0.1.4'ten kalan `scheduler-…`; 7 gün
+tutulur; asla anahtar ya da parola içermez), `reports/` (yalnız "Hata bildir" ile sizin yaptığınız günlük zip dosyaları),
+`scheduler-instance.lock` (bir veri klasörü için tek gönderici: pencere ya da bir çalıştırma) / `window-instance.lock` (tek pencere),
+`system-trigger.json` (sistem zamanlayıcısına ne yazıldığı ve TM Publisher'ı ne zaman başlatacağı), `run-state.json` (çalıştırmaların
+art arda hata sayısı ve son kilit bildirimi), `scheduler-paused.txt` (yalnız zamanlama duraklatılmışken) ve `locks/` (bir hesabın
+anahtar yenilemesi asla aynı anda iki kez çalışmaz). Medya dosyaları sizin tuttuğunuz yerde kalır; yalnız yolları saklanır.
 
-Başka bir klasör `--data-dir <klasör>` ya da `TMPUBLISHER_DATA_DIR` ortam değişkeniyle kullanılabilir; otomatik başlatma kaydı
-o klasörü korur. Pencere programı ilk açılışta yerel kitaplıklarını sistemin geçici klasörüne açar (.NET tek dosya
+Başka bir klasör `--data-dir <klasör>` ya da `TMPUBLISHER_DATA_DIR` ortam değişkeniyle kullanılabilir; her veri klasörünün o klasörü
+koruyan kendi görevi / zamanlayıcısı olur. Program ilk açılışta yerel kitaplıklarını sistemin geçici klasörüne açar (.NET tek dosya
 programlarının olağan davranışı).
 
 Pencere ekran kartıyla değil işlemciyle çizer. Çok büyük bir ekranda çizim yavaş gelirse `--gpu` ile başlatın (ya da
@@ -248,13 +256,12 @@ git clone <bu depo>
 cd tm-publisher
 tools/install-hooks.sh        # ya da: pwsh tools/install-hooks.ps1
 dotnet test TMPublisher.slnx
-dotnet run --project src/TMPublisher.Desktop     # pencere; zamanlayıcı src/TMPublisher.Background
+dotnet run --project src/TMPublisher.Desktop     # pencere; penceresiz tek çalıştırma için sonuna -- --run-due ekleyin
 ```
 
-Sürüm dosyaları yalnız temiz bir çalışma ağacından (programlar derlendikleri commit'i taşır): Windows'ta `pwsh tools/publish.ps1`
-(win-x64: pencere kırpılmış tek dosya, zamanlayıcı Native AOT; Visual Studio'nun C++ araçları gerekir), Linux'ta
-`tools/publish.sh` (zamanlayıcı makinenin kendi mimarisi için clang ya da gcc ile Native AOT, öteki mimari için kırpılmış
-ReadyToRun tek dosya). Paketler ve `SHA256SUMS.txt` `artifacts/release` altına yazılır (başka bir klasör:
+Sürüm dosyaları yalnız temiz bir çalışma ağacından (program derlendiği commit'i taşır): Windows'ta `pwsh tools/publish.ps1 -Rids
+win-x64,linux-x64,linux-arm64`, Linux'ta `tools/publish.sh`; her biri platform başına yerel kitaplıkları içinde, kırpılmış, kendi
+kendine yeten tek bir dosya yapar (yerel derleyici gerekmez). Paketler ve `SHA256SUMS.txt` `artifacts/release` altına yazılır (başka bir klasör:
 `-Out <klasör>` / `TMPUBLISHER_OUT=<klasör>`). `docs/platforms` altındaki platform rehberleri programın kendi metinlerinden
 `python tools/gen-platform-docs.py` ile üretilir.
 

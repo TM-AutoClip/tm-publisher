@@ -14,8 +14,8 @@ The font license texts are embedded in the program and shipped as files in the L
 
 ## Libraries bundled into the program
 
-The release files are self-contained: they carry the .NET runtime and these libraries (the background scheduler only the ones it needs,
-compiled to native code). Each keeps its own license.
+The release files are self-contained: the one program file carries the .NET runtime and these libraries (the native ones inside the
+file too). Each keeps its own license.
 
 | Library | License |
 |---|---|
@@ -27,6 +27,6 @@ compiled to native code). Each keeps its own license.
 | SQLite | Public domain |
 | Konscious.Security.Cryptography.Argon2 | MIT |
 | System.Security.Cryptography.ProtectedData | MIT |
-| Tmds.DBus.Protocol | MIT |
+| Tmds.DBus.Protocol (used by Avalonia on Linux) | MIT |
 
-Exact versions are in `Directory.Packages.props`.
+Exact versions are in `Directory.Packages.props` (Tmds.DBus.Protocol comes with Avalonia).

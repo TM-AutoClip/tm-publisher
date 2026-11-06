@@ -25,8 +25,8 @@ Supported: YouTube · X · TikTok · Instagram · Facebook Page · Threads · Bl
 - **Write once, send everywhere.** Text, photos or a video; each account shows exactly the text it will receive (platform
   tags, title, length counter) and the same checks that run before sending. What the form shows is what is published.
 - **Groups.** Send to a saved group of accounts in its order, or pick accounts by hand. A post never goes to nobody.
-- **Schedule.** A small background scheduler sends your posts at their time, also when the window is closed (see
-  [What runs in the background](#what-runs-in-the-background)). One timer, no polling. Posts are sent one account at a time;
+- **Schedule.** Your posts go out at their time, also when the app is closed: your system's scheduler starts TM Publisher for a
+  moment, it sends and ends (see [What runs in the background](#what-runs-in-the-background)). No polling. Posts are sent one account at a time;
   if one fails, the rest wait for your decision (try again, skip and continue, cancel). A post up to 5 minutes late is still
   sent; a post missed while the computer was off waits for you on the **Waiting for you** page.
 - **Calendar.** Month and week views; drag a planned post to another day.
@@ -42,29 +42,28 @@ It does **not** read messages or comments, and it does not send e-mail.
 
 ## What runs in the background
 
-TM Publisher is two programs in one folder:
+Nothing, between your posts. TM Publisher is one program file (`TMPublisher.exe` on Windows, `tm-publisher` on Linux):
 
-| | Windows | Linux | Runs |
-|---|---|---|---|
-| The window | `TMPublisher.exe` | `tm-publisher` | only while you have it open; closing it ends it |
-| The background scheduler | `TMPublisherScheduler.exe` | `tm-publisher-scheduler` | all the time: it waits for the next post's time and sends it |
-
-The scheduler is small: no window library, compiled to native code. Measured for 0.1.3 while it waits for posts: about 6 MB in
-Windows Task Manager (22 MB working set), about 22 MB resident on a Raspberry Pi 5. While it sends a post it uses more for a
-moment, and a notification is shown by a short-lived copy of the window program that ends when the notification closes.
-
-- **It starts** with your computer (Settings → **Start the background scheduler with my computer**, on by default) and whenever
-  you open the window. Only one scheduler runs per data folder.
-- **See and control it:** Settings → **Background scheduler** shows whether it runs, the next post, and has Start, Stop, Pause and
-  Resume. On Windows it also has a tray icon: click it to open the window; right-click for Pause / Resume scheduling and Quit.
-- **Stop it:** Settings → **Stop**, or the tray icon → **Quit (stop scheduling)** on Windows. Posts are not sent while it is
-  stopped; it starts again with the window or the computer. To keep it from starting with the computer, turn the setting off.
-  A post being sent is finished first.
-- **Pause** keeps it running but sends nothing; posts whose time passes more than 5 minutes before you resume wait for you.
-- **Master password:** if you protect the database with a master password (always the case on Linux without a keyring, for
-  example on a Raspberry Pi), the scheduler cannot ask for it. After the computer starts, open TM Publisher once and unlock it:
-  the window hands the key to the scheduler over a channel only your user can open (never on a command line or in a file). Until
-  then Settings shows "Waiting for the master password" and nothing is sent.
+- **While the window is open,** the window sends your scheduled posts at their time.
+- **While it is closed,** your system's scheduler starts the same file for a moment with `--run-due`: it opens the database,
+  sends every post whose time has come, sets the next start and ends. On Windows that is a **Task Scheduler** task of your user
+  (`TM Publisher <code>`, under the Task Scheduler Library); on Linux a **systemd user timer** (`tm-publisher-<code>.timer`, in
+  `~/.config/systemd/user`). No administrator rights. The task starts at the next post's time, one minute after you sign in, and
+  every 30 minutes after a post's time until a run has set the next one; a start missed while the computer was off or asleep runs
+  as soon as it is back. A post more than 5 minutes late is not sent on its own: it waits for you on **Waiting for you**.
+- **Notifications** of such a run (published, failed, missed) are shown in the bottom-right corner by a short-lived copy of the
+  program that ends when the last one closes.
+- **Settings → Send scheduled posts while TM Publisher is closed** (on by default) writes or removes the task / timer. Settings →
+  **Sending** shows who sends now, the next post and when the system starts TM Publisher next. **Wake the computer from sleep to
+  send a post** (Windows, off by default) lets the task wake the computer.
+- **Pause scheduling** (Settings → Sending) holds both the window and the runs: nothing is sent; posts whose time passes more than
+  5 minutes before you resume wait for you.
+- Only one sender works per data folder: while the window is open a run ends at once, and two runs never overlap.
+- **Master password:** a run cannot ask for it, so with a master password (always the case on Linux without a keyring, for
+  example on a Raspberry Pi) nothing is sent while the app is closed. When a post is due, a notification asks you once to open
+  TM Publisher; after you unlock it, the window sends the post.
+- **Linux without a systemd user session:** TM Publisher writes an autostart entry instead (`~/.config/autostart/tm-publisher-<code>.desktop`)
+  that sends due posts when you sign in, and Settings says so; posts are then not sent at their time while the app is closed.
 
 ## Install on Windows
 
@@ -75,11 +74,11 @@ Windows 10 or 11, 64-bit.
    ```powershell
    Get-FileHash .\TMPublisher-0.1.3-win-x64.zip -Algorithm SHA256
    ```
-3. Unpack it where it can stay, for example to `%LOCALAPPDATA%\Programs`. You get a `TM Publisher` folder with
-   `TMPublisher.exe`, `TMPublisherScheduler.exe` and `sqlite3mc.dll`; keep the three together. Autostart points to this exact
-   folder, so choose the place before the first start.
-4. Double-click `TMPublisher.exe`. The files are not code-signed, so Windows shows **"Windows protected your PC"**
-   (SmartScreen): click **More info**, then **Run anyway**. Windows may ask once more for the scheduler.
+3. Unpack it where it can stay, for example to `%LOCALAPPDATA%\Programs`. You get a `TM Publisher` folder with one program,
+   `TMPublisher.exe`, and its documents. The Task Scheduler task points to this exact file, so choose the place before the first
+   start (moving it later: open the moved program once, it writes the task again).
+4. Double-click `TMPublisher.exe`. The file is not code-signed, so Windows shows **"Windows protected your PC"**
+   (SmartScreen): click **More info**, then **Run anyway**.
 5. Continue with [First start](#first-start).
 
 No administrator rights are needed; nothing is installed system-wide.
@@ -94,7 +93,7 @@ desktop). A desktop session (X11, or Wayland with XWayland) is required for the 
    ```sh
    sha256sum tm-publisher-0.1.3-linux-x64.tar.gz
    ```
-3. Unpack it where it can stay (the programs are already marked executable):
+3. Unpack it where it can stay (the program is already marked executable):
    ```sh
    mkdir -p ~/.local/opt
    tar -xzf tm-publisher-0.1.3-linux-x64.tar.gz -C ~/.local/opt
@@ -113,13 +112,10 @@ desktop). A desktop session (X11, or Wayland with XWayland) is required for the 
 
 Notes:
 
-- **No tray icon on Linux:** the scheduler has none (a tray host is not there on every desktop). Open the window from your menu
-  or the command line; Settings → Background scheduler shows its state and stops it.
-- **Autostart:** the window writes `~/.config/autostart/tm-publisher.desktop`, which starts the scheduler at sign-in on desktops
-  that follow the XDG autostart specification. Turn it on or off in Settings.
-- **linux-x64:** the scheduler for x64 is not compiled to native code in this release (that is only possible on an x64 Linux
-  machine, which the release was not built on); it is a trimmed, precompiled single file instead and uses about twice the memory
-  of the arm64 one (measured on arm64: about 46 MB instead of 22 MB). Everything else is the same.
+- **Sending while closed** uses a systemd user timer (see [What runs in the background](#what-runs-in-the-background)). It runs
+  while you are signed in; to have it run also when nobody is signed in, enable lingering once: `loginctl enable-linger $USER`.
+- The run shows its notifications only when it knows your desktop session (`DISPLAY` / `WAYLAND_DISPLAY` in the systemd user
+  environment, which most desktops set); otherwise they are only written to the log.
 
 ## First start
 
@@ -128,7 +124,7 @@ Notes:
 3. **Protection:** by default the database key is protected by this computer (Windows) or the keyring (Linux) and opens
    automatically. You can choose a **master password** instead; it is then asked at every start. A forgotten master password
    cannot be recovered, so keep a backup.
-4. **Start the background scheduler with my computer** is on by default, so scheduled posts go out on time also when the window
+4. **Send scheduled posts while TM Publisher is closed** is on by default, so scheduled posts go out on time also when the app
    is closed. Turn it off in Settings if you prefer.
 5. Add your accounts under **Accounts** (see below), optionally make **Groups**, then write your first post under **New post**.
 
@@ -161,25 +157,34 @@ you at once whether it worked.
 1. Optional: make a backup in **Settings → Backup**.
 2. Stop the old version:
    - **From 0.1.0–0.1.2:** quit it from its tray menu (**Quit**) or with **Quit TM Publisher** at the bottom of the sidebar
-     (closing the window only hid it), and remove old shortcuts or pins to it. While the new scheduler finds an old version on the
-     same data folder it does not start and claims no post; on Windows an old version started later ends at once. On Linux an
-     old version started after the new scheduler sends the posts itself until you quit it (the new one waits), and a post the new
-     one was sending at that moment can come back as interrupted. So quit the old version first.
-   - **From 0.1.3 on:** close the window and stop the scheduler (Settings → **Stop**, or the tray icon → **Quit**).
-3. Windows: unpack the new zip and replace the files of the `TM Publisher` folder (same place, so autostart keeps working). Coming
-   from 0.1.0–0.1.2, which was a single `TMPublisher-<version>-win-x64.exe`: put the new folder where you like, start
-   `TMPublisher.exe` there, and delete the old exe; the autostart entry is moved to the new scheduler when the new window starts.
-   Linux: unpack the new archive over the old folder.
-4. Start the window. Your data stays where it was.
+     (closing the window only hid it), and remove old shortcuts or pins to it. While an old version runs on the same data folder,
+     no post is sent by the new one. So quit the old version first.
+   - **From 0.1.3–0.1.4:** close the window and quit the scheduler (tray icon → **Quit**, or Settings → **Stop**). If you forget,
+     the new version asks it to end when it starts (and waits for a post it is sending).
+3. Windows: unpack the new zip and replace the files of the `TM Publisher` folder. Coming from 0.1.3–0.1.4, delete
+   `TMPublisherScheduler.exe` and `sqlite3mc.dll` there; they are not used any more. Coming from 0.1.0–0.1.2, which was a single
+   `TMPublisher-<version>-win-x64.exe`: put the new folder where you like, start `TMPublisher.exe` there, and delete the old exe.
+   Linux: unpack the new archive over the old folder and delete `tm-publisher-scheduler` and `libsqlite3mc.so` there.
+4. Start the window. Your data stays where it was. The old autostart entry (Windows Run key / `~/.config/autostart/tm-publisher.desktop`)
+   is removed by itself, and the Task Scheduler task / systemd timer is written.
 
 ## Uninstall
 
-1. In **Settings**, turn off **Start the background scheduler with my computer** (this removes the Windows autostart entry or
-   disables the Linux one), then **Stop** the scheduler there.
+1. In **Settings**, turn off **Send scheduled posts while TM Publisher is closed** and press **Save**: this removes the Task
+   Scheduler task (Windows) or the systemd timer and service (Linux).
 2. Close the window.
-3. Delete the `TM Publisher` folder (Windows) or the `tm-publisher` folder (Linux), and on Linux
-   `~/.config/autostart/tm-publisher.desktop`.
-4. To remove your data too, delete the data folder below. This cannot be undone; make a backup first if you may need it.
+3. Delete the `TM Publisher` folder (Windows) or the `tm-publisher` folder (Linux).
+4. If the program is already gone, remove its system entry by hand:
+   - Windows: open **Task Scheduler**, select **Task Scheduler Library**, delete the task `TM Publisher <code>`; or in PowerShell:
+     `Get-ScheduledTask -TaskName 'TM Publisher *' | Unregister-ScheduledTask -Confirm:$false`
+   - Linux:
+     ```sh
+     systemctl --user disable --now 'tm-publisher-*.timer'
+     rm ~/.config/systemd/user/tm-publisher-*.timer ~/.config/systemd/user/tm-publisher-*.service
+     rm -f ~/.config/autostart/tm-publisher-*.desktop ~/.config/autostart/tm-publisher.desktop
+     systemctl --user daemon-reload
+     ```
+5. To remove your data too, delete the data folder below. This cannot be undone; make a backup first if you may need it.
    On Linux with the keyring, also delete the "TM Publisher database key" entry in your keyring app (Seahorse, KWallet...).
 
 ## Where your data is
@@ -190,15 +195,18 @@ you at once whether it worked.
 | Linux | `~/.local/share/tm-publisher` (or `$XDG_DATA_HOME/tm-publisher`) |
 
 Inside: `publisher.db` (the encrypted database), `key.json` (the database key, sealed by DPAPI, the keyring or your master
-password), `preferences.json` (only the interface language), `logs/` (one file per day and program: `app-yyyy-MM-dd.log` for
-the window, `scheduler-…` for the scheduler, `notify-…` for notifications; kept 7 days; never contain tokens or passwords),
-`reports/` (only the logs zips you make with "Report a problem"), `scheduler-instance.lock` / `window-instance.lock` (one scheduler and one window per data folder),
-`scheduler-paused.txt` (only while scheduling is paused) and `locks/` (token refreshes of one account never run twice at once).
+password), `preferences.json` (only the interface language), `logs/` (one file per day and kind: `app-yyyy-MM-dd.log` for
+the window, `run-…` for the runs the system scheduler starts, `notify-…` for notifications, `scheduler-…` from 0.1.3–0.1.4; kept 7
+days; never contain tokens or passwords), `reports/` (only the logs zips you make with "Report a problem"),
+`scheduler-instance.lock` (one sender per data folder: the window or one run) / `window-instance.lock` (one window),
+`system-trigger.json` (what was written to the system scheduler and when it starts TM Publisher next), `run-state.json` (errors in a
+row and the last unlock notice of the runs), `scheduler-paused.txt` (only while scheduling is paused) and `locks/` (token refreshes of
+one account never run twice at once).
 Media files stay where you keep them; only their paths are stored.
 
-Another folder can be used with `--data-dir <folder>` or the `TMPUBLISHER_DATA_DIR` environment variable; the autostart entry keeps
-that folder. The window program unpacks its native libraries to the system's temporary folder on first start (standard .NET
-single-file behavior).
+Another folder can be used with `--data-dir <folder>` or the `TMPUBLISHER_DATA_DIR` environment variable; each data folder gets its
+own task / timer, which keeps that folder. The program unpacks its native libraries to the system's temporary folder on first start
+(standard .NET single-file behavior).
 
 The window draws with the processor, not the graphics card. If drawing feels slow on a very large screen, start it with `--gpu`
 (or set the environment variable `TMPUBLISHER_GPU=1`) to draw with the graphics card.
@@ -240,13 +248,12 @@ git clone <this repository>
 cd tm-publisher
 tools/install-hooks.sh        # or: pwsh tools/install-hooks.ps1
 dotnet test TMPublisher.slnx
-dotnet run --project src/TMPublisher.Desktop     # the window; the scheduler is src/TMPublisher.Background
+dotnet run --project src/TMPublisher.Desktop     # the window; add -- --run-due for one run without a window
 ```
 
-Release files, from a clean working tree only (the programs carry the commit they were built from): `pwsh tools/publish.ps1`
-on Windows (win-x64: the window trimmed single file, the scheduler with Native AOT, which needs Visual Studio's C++ tools) and
-`tools/publish.sh` on Linux (the scheduler is Native AOT for the machine's own architecture, built with clang or gcc, and a
-trimmed ReadyToRun single file for the other one). Packages and `SHA256SUMS.txt` go to `artifacts/release` (another folder: `-Out <folder>` /
+Release files, from a clean working tree only (the program carries the commit it was built from): `pwsh tools/publish.ps1 -Rids
+win-x64,linux-x64,linux-arm64` on Windows or `tools/publish.sh` on Linux; each makes one trimmed, self-contained single file per
+platform with its native libraries inside (no native compiler needed). Packages and `SHA256SUMS.txt` go to `artifacts/release` (another folder: `-Out <folder>` /
 `TMPUBLISHER_OUT=<folder>`). Platform guides in `docs/platforms` are generated from the app's own texts with
 `python tools/gen-platform-docs.py`.
 
