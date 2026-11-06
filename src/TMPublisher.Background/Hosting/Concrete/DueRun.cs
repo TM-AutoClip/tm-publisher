@@ -44,13 +44,18 @@ public sealed class DueRun(AppPaths paths, Vault vault, SenderGate gate, PostSch
                     NoticeLocked(started);
                     return RunOutcome.Locked;
                 case VaultState.Locked:
+                case VaultState.Open:
                     break;
             }
 
             var state = stateFile.Read();
             try
             {
-                await vault.OpenAsync(cancellationToken).ConfigureAwait(false);
+                if (vault.State != VaultState.Open)
+                {
+                    await vault.OpenAsync(cancellationToken).ConfigureAwait(false);
+                }
+
                 text.Use((await settings.GetAsync(cancellationToken).ConfigureAwait(false)).Language);
                 var paused = pause.IsPaused;
                 if (paused)
