@@ -141,12 +141,30 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         try
         {
             await vault.OpenAsync(CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            // The key file, the database file or the key protection of this computer (the exception says which).
+            logger.LogCritical(ex, "The database could not be opened automatically ({Type})", ex.GetType().Name);
+            ShowUnlock(text.Format("unlock.automatic_failed", ex.Message));
+            return;
+        }
+
+        try
+        {
             await StartMainAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            logger.LogCritical(ex, "The database could not be opened automatically (the key protection of this computer failed)");
-            ShowUnlock(text.Format("unlock.automatic_failed", ex.Message));
+            // The key worked: this is the settings, a page or the main window, not the key protection.
+            if (_shell is not null)
+            {
+                ReportUnhandled(ex);
+                return;
+            }
+
+            logger.LogCritical(ex, "The main window could not start after the database was opened ({Type})", ex.GetType().Name);
+            ShowUnlock(text.Format("error.unexpected", TMPublisher.Core.Security.Redactor.Redact(ex.Message)));
         }
     }
 
