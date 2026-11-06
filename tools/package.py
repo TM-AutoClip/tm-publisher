@@ -1,14 +1,15 @@
-"""Packs the published window program and background scheduler of one platform for a release and records the SHA-256.
+"""Packs the one published program file of a platform for a release and records the SHA-256.
 
-    python tools/package.py <window folder> <scheduler folder> <rid> <version> [<output folder>]   (default artifacts/release)
+    python tools/package.py <published folder> <rid> <version> [<output folder>]   (default artifacts/release)
 
-win-x64:  artifacts/release/TMPublisher-<version>-win-x64.zip with one folder "TM Publisher": TMPublisher.exe (the window),
-          TMPublisherScheduler.exe (the background scheduler), sqlite3mc.dll (the scheduler's SQLite library; the window carries its own
-          copy inside), README, LICENSE, the third-party notices and the font licenses. No installer: unzip and run TMPublisher.exe.
-linux-*:  artifacts/release/tm-publisher-<version>-<rid>.tar.gz with a tm-publisher/ folder: tm-publisher (the window),
-          tm-publisher-scheduler, libsqlite3mc.so (both marked executable where they are programs), the same documents.
+win-x64:  <output>/TMPublisher-<version>-win-x64.zip with one folder "TM Publisher": TMPublisher.exe (the whole program: the window, the
+          run the system scheduler starts, the notifications; the .NET runtime and every native library are inside it), README, LICENSE, the
+          third-party notices and the font licenses. No installer: unzip and run TMPublisher.exe.
+linux-*:  <output>/tm-publisher-<version>-<rid>.tar.gz with a tm-publisher/ folder: tm-publisher (marked executable) and the same documents.
 
-The file's line in artifacts/release/SHA256SUMS.txt is replaced (other lines are kept).
+Only documents are next to the program: a published folder with any other file than the program is refused (a native library left outside
+the single file would be missing after an update that copies only the program).
+The file's line in <output>/SHA256SUMS.txt is replaced (other lines are kept).
 """
 import hashlib
 import os
@@ -29,21 +30,18 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def contents(window, scheduler, windows):
+def contents(published, windows):
     """(source, name in the package, mode) of every file."""
-    if windows:
-        files = [(os.path.join(window, "TMPublisher.exe"), "TMPublisher.exe", 0o755),
-                 (os.path.join(scheduler, "TMPublisherScheduler.exe"), "TMPublisherScheduler.exe", 0o755),
-                 (os.path.join(scheduler, "sqlite3mc.dll"), "sqlite3mc.dll", 0o644)]
-    else:
-        files = [(os.path.join(window, "TMPublisher"), "tm-publisher", 0o755),
-                 (os.path.join(scheduler, "TMPublisherScheduler"), "tm-publisher-scheduler", 0o755),
-                 (os.path.join(scheduler, "libsqlite3mc.so"), "libsqlite3mc.so", 0o755)]
+    program = "TMPublisher.exe" if windows else "TMPublisher"
+    extra = sorted(n for n in os.listdir(published) if n != program and not n.endswith(".pdb") and not n.endswith(".dbg"))
+    if extra:
+        raise SystemExit("not a single file: the published folder also has " + ", ".join(extra))
+    files = [(os.path.join(published, program), "TMPublisher.exe" if windows else "tm-publisher", 0o755)]
     files += [(os.path.join(ROOT, name), name, 0o644) for name in DOCUMENTS]
     files += [(os.path.join(LICENSES, name), "licenses/" + name, 0o644) for name in sorted(os.listdir(LICENSES))]
     for source, _, _ in files:
         if not os.path.isfile(source):
-            raise SystemExit("missing in the published output: " + source)
+            raise SystemExit("missing: " + source)
     return files
 
 
@@ -60,11 +58,11 @@ def record(target):
 
 
 def main():
-    window, scheduler, rid, version = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-    out = os.path.abspath(sys.argv[5]) if len(sys.argv) > 5 else os.path.join(ROOT, "artifacts", "release")
+    published, rid, version = sys.argv[1], sys.argv[2], sys.argv[3]
+    out = os.path.abspath(sys.argv[4]) if len(sys.argv) > 4 else os.path.join(ROOT, "artifacts", "release")
     os.makedirs(out, exist_ok=True)
     windows = rid.startswith("win")
-    files = contents(window, scheduler, windows)
+    files = contents(published, windows)
     if windows:
         target = os.path.join(out, f"TMPublisher-{version}-{rid}.zip")
         with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
