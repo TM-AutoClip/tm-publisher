@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Platform setup guides
+    url: https://github.com/TM-AutoClip/tm-publisher/tree/main/docs/platforms
+    about: How to create the developer app and connect each platform (read this first for connection problems).

@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in TM Publisher does not work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting this. In the app, **Report a problem → Prepare logs** makes a zip of the last 7 days of logs
+        (home folder, e-mail addresses and tokens are masked). Please attach it below; nothing is sent by the app itself.
+
+        Türkçe de yazabilirsiniz: uygulamada **Hata bildir → Günlükleri hazırla** ile oluşan zip dosyasını aşağıya ekleyin.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see? Copy the exact error text if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What did you do right before it happened?
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. ...
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Filled in by the app (Report a problem → Report on GitHub).
+      placeholder: "0.1.4+abc1234"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Microsoft Windows 10.0.26200 / Debian 12"
+    validations:
+      required: true
+  - type: input
+    id: architecture
+    attributes:
+      label: Architecture
+      placeholder: "X64 / Arm64"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs zip
+      description: Drag the zip from "Prepare logs" here (it is in the data folder's reports/ folder). Please check it does not contain anything you do not want to share.
+    validations:
+      required: false

@@ -198,9 +198,9 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 | Linux | `~/.local/share/tm-publisher` (ya da `$XDG_DATA_HOME/tm-publisher`) |
 
 İçinde: `publisher.db` (şifreli veritabanı), `key.json` (DPAPI, anahtarlık ya da ana parolanızla mühürlenmiş veritabanı
-anahtarı), `preferences.json` (yalnız arayüz dili), `logs/` (gün ve program başına bir dosya: pencere için `tmpublisher-…`,
-zamanlayıcı için `tmpublisher-scheduler-…`, bildirimler için `tmpublisher-notify-…`; 14 gün tutulur; asla anahtar ya da parola
-içermez), `scheduler-instance.lock` / `window-instance.lock` (bir veri klasörü için bir zamanlayıcı ve bir pencere),
+anahtarı), `preferences.json` (yalnız arayüz dili), `logs/` (gün ve program başına bir dosya: pencere için `app-yyyy-MM-dd.log`,
+zamanlayıcı için `scheduler-…`, bildirimler için `notify-…`; 7 gün tutulur; asla anahtar ya da parola içermez), `reports/` (yalnız
+"Hata bildir" ile sizin yaptığınız günlük zip dosyaları), `scheduler-instance.lock` / `window-instance.lock` (bir veri klasörü için bir zamanlayıcı ve bir pencere),
 `scheduler-paused.txt` (yalnız zamanlama duraklatılmışken) ve `locks/` (bir hesabın anahtar yenilemesi asla aynı anda iki kez
 çalışmaz). Medya dosyaları sizin tuttuğunuz yerde kalır; yalnız yolları saklanır.
 
@@ -210,6 +210,21 @@ programlarının olağan davranışı).
 
 Pencere ekran kartıyla değil işlemciyle çizer. Çok büyük bir ekranda çizim yavaş gelirse `--gpu` ile başlatın (ya da
 `TMPUBLISHER_GPU=1` ortam değişkenini tanımlayın).
+
+## Hata bildirme
+
+**Hata bildir** düğmesi yan menünün altındadır. Hiçbir şey kendiliğinden gönderilmez:
+
+- **Günlükleri hazırla**, veri klasörünün `reports/` klasöründe `tm-publisher-logs-<tarih>-<saat>.zip` dosyasını yapar ve
+  gösterir: son 7 günün günlük dosyaları ve `system.txt` (sürüm, işletim sistemi, mimari, .NET, arayüz dili, çizim kipi, hangi
+  yardımcı programların olduğu). Ev klasörünüz, e-posta adresleri ve anahtarlar gizlenir; ayarlar, anahtarlar, veritabanı, hesap
+  adları ve gönderi metinleri asla içinde olmaz. En yeni 5 zip tutulur.
+- **GitHub'da bildir**, hata formunu tarayıcınızda sürüm ve sistem bilgisi dolu olarak açar; ne olduğunu yazın ve zip dosyasını
+  forma sürükleyin.
+- **Bilgileri kopyala**, aynı `system.txt` metnini panoya kopyalar.
+
+Günlükler veri klasörünün `logs/` klasöründedir; gün ve program başına bir dosya, Information düzeyi ve üstü. Yalnız son 7 gün
+(bugün dahil) tutulur, daha eskileri açılışta ve her gün değişiminde silinir; bir dosya o gün 20 MB'a ulaşınca büyümeyi bırakır.
 
 ## Bilinen kısıtlar
 
@@ -239,7 +254,8 @@ dotnet run --project src/TMPublisher.Desktop     # pencere; zamanlayıcı src/TM
 Sürüm dosyaları yalnız temiz bir çalışma ağacından (programlar derlendikleri commit'i taşır): Windows'ta `pwsh tools/publish.ps1`
 (win-x64: pencere kırpılmış tek dosya, zamanlayıcı Native AOT; Visual Studio'nun C++ araçları gerekir), Linux'ta
 `tools/publish.sh` (zamanlayıcı makinenin kendi mimarisi için clang ya da gcc ile Native AOT, öteki mimari için kırpılmış
-ReadyToRun tek dosya). Paketler ve `SHA256SUMS.txt` `artifacts/release` altına yazılır. `docs/platforms` altındaki platform rehberleri programın kendi metinlerinden
+ReadyToRun tek dosya). Paketler ve `SHA256SUMS.txt` `artifacts/release` altına yazılır (başka bir klasör:
+`-Out <klasör>` / `TMPUBLISHER_OUT=<klasör>`). `docs/platforms` altındaki platform rehberleri programın kendi metinlerinden
 `python tools/gen-platform-docs.py` ile üretilir.
 
 ## Lisans

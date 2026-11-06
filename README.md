@@ -190,9 +190,9 @@ you at once whether it worked.
 | Linux | `~/.local/share/tm-publisher` (or `$XDG_DATA_HOME/tm-publisher`) |
 
 Inside: `publisher.db` (the encrypted database), `key.json` (the database key, sealed by DPAPI, the keyring or your master
-password), `preferences.json` (only the interface language), `logs/` (one file per day and program: `tmpublisher-…` for the
-window, `tmpublisher-scheduler-…` for the scheduler, `tmpublisher-notify-…` for notifications; kept 14 days; never contain tokens
-or passwords), `scheduler-instance.lock` / `window-instance.lock` (one scheduler and one window per data folder),
+password), `preferences.json` (only the interface language), `logs/` (one file per day and program: `app-yyyy-MM-dd.log` for
+the window, `scheduler-…` for the scheduler, `notify-…` for notifications; kept 7 days; never contain tokens or passwords),
+`reports/` (only the logs zips you make with "Report a problem"), `scheduler-instance.lock` / `window-instance.lock` (one scheduler and one window per data folder),
 `scheduler-paused.txt` (only while scheduling is paused) and `locks/` (token refreshes of one account never run twice at once).
 Media files stay where you keep them; only their paths are stored.
 
@@ -202,6 +202,22 @@ single-file behavior).
 
 The window draws with the processor, not the graphics card. If drawing feels slow on a very large screen, start it with `--gpu`
 (or set the environment variable `TMPUBLISHER_GPU=1`) to draw with the graphics card.
+
+## Reporting a problem
+
+The **Report a problem** button is at the bottom of the side menu. Nothing is sent automatically:
+
+- **Prepare logs** makes `tm-publisher-logs-<date>-<time>.zip` in the data folder's `reports/` folder and shows it: the log files
+  of the last 7 days and `system.txt` (version, operating system, architecture, .NET, interface language, drawing mode, which
+  helper programs are there). Your home folder, e-mail addresses and tokens are masked; settings, keys, the database, account
+  names and post texts are never in it. The newest 5 zips are kept.
+- **Report on GitHub** opens the bug form in your browser with the version and system filled in; describe what happened and drag
+  the zip into it.
+- **Copy details** copies the same `system.txt` text.
+
+The logs are in the data folder's `logs/` folder, one file per day and program, Information level and above; only the last 7
+days (today included) are kept, older files are deleted at start and at each day change, and a file stops growing for the day
+at 20 MB.
 
 ## Known limits
 
@@ -230,7 +246,8 @@ dotnet run --project src/TMPublisher.Desktop     # the window; the scheduler is 
 Release files, from a clean working tree only (the programs carry the commit they were built from): `pwsh tools/publish.ps1`
 on Windows (win-x64: the window trimmed single file, the scheduler with Native AOT, which needs Visual Studio's C++ tools) and
 `tools/publish.sh` on Linux (the scheduler is Native AOT for the machine's own architecture, built with clang or gcc, and a
-trimmed ReadyToRun single file for the other one). Packages and `SHA256SUMS.txt` go to `artifacts/release`. Platform guides in `docs/platforms` are generated from the app's own texts with
+trimmed ReadyToRun single file for the other one). Packages and `SHA256SUMS.txt` go to `artifacts/release` (another folder: `-Out <folder>` /
+`TMPUBLISHER_OUT=<folder>`). Platform guides in `docs/platforms` are generated from the app's own texts with
 `python tools/gen-platform-docs.py`.
 
 ## License
