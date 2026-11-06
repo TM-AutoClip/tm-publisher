@@ -9,7 +9,8 @@ namespace TMPublisher.Scheduling;
 
 /// <summary>
 /// Sends the scheduled posts, in one of two ways. While the window is open: one timer for the whole schedule, set to the earliest scheduled
-/// post, at most <see cref="SchedulerLimits.SafetyInterval"/> ahead, and set again whenever something changes (no loop, no polling in between).
+/// post, at most <see cref="SchedulerLimits.SafetyInterval"/> ahead, and set again whenever something changes; the wait runs in pieces of
+/// <see cref="SchedulerLimits.SleepCheck"/> that only compare the clock, so a computer that slept or woke for a post sends it on time.
 /// In a run the system scheduler started (<see cref="RunOnceAsync"/>): one pass over what is due and no timer; the run ends and the system
 /// scheduler starts the next one. Only one sender works per data folder at a time (the sender lock), so the two never run side by side. A due post is first claimed in the database (scheduled → publishing, only if nobody changed it meanwhile) and then read
 /// again and sent, so an edit, a move or a second scheduler can never make it go out twice or with old content. Posts are sent one at a time.
@@ -39,6 +40,7 @@ public sealed class PostScheduler : IDisposable
     private DateTimeOffset? _loggedNext;
     private bool _nextLogged;
     private DateTimeOffset _heartbeatUtc = DateTimeOffset.MinValue;
+    private DateTimeOffset _pieceDueUtc;
     private bool _oneShot;
 
     /// <summary>Creates.</summary>
@@ -152,7 +154,7 @@ public sealed class PostScheduler : IDisposable
     {
         _oneShot = true;
         _paused = paused;
-        foreach (var post in await _posts.ListByStatusAsync([PostStatus.Publishing], cancellationToken).ConfigureAwait(false))
+        foreach (var post in await InterruptedAsync(cancellationToken).ConfigureAwait(false))
         {
             await StopForUserAsync(post, _text["problem.interrupted"], cancellationToken).ConfigureAwait(false);
             _logger.LogWarning("Post {PostId} was interrupted when the previous sender ended; waiting for the user", post.Id);
@@ -305,13 +307,28 @@ public sealed class PostScheduler : IDisposable
     private async Task RecoverAsync(CancellationToken cancellationToken)
     {
         // Only one sender works per data folder (the sender lock), so a post still "publishing" here was left by a sender that ended.
-        foreach (var post in await _posts.ListByStatusAsync([PostStatus.Publishing], cancellationToken).ConfigureAwait(false))
+        foreach (var post in await InterruptedAsync(cancellationToken).ConfigureAwait(false))
         {
             await StopForUserAsync(post, _text["problem.interrupted"], cancellationToken).ConfigureAwait(false);
             _logger.LogWarning("Post {PostId} was interrupted when the scheduler ended; waiting for the user", post.Id);
         }
 
         await _watcher.ResumeAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The posts left "publishing" by a sender that ended; none while an old TM Publisher (0.1.0–0.1.2) runs on the same data, which may be
+    /// sending one of them right now (they are looked at again at the next start).
+    /// </summary>
+    private async Task<IReadOnlyList<Post>> InterruptedAsync(CancellationToken cancellationToken)
+    {
+        if (_oldVersion.OldVersionRuns())
+        {
+            _logger.LogInformation("An older TM Publisher runs on the same data; posts left publishing are not touched now");
+            return [];
+        }
+
+        return await _posts.ListByStatusAsync([PostStatus.Publishing], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -489,7 +506,7 @@ public sealed class PostScheduler : IDisposable
                 var wait = next?.ScheduledAtUtc is { } at ? at - _clock.GetUtcNow() : SchedulerLimits.SafetyInterval;
                 wait = wait < atLeast ? atLeast : wait > SchedulerLimits.SafetyInterval ? SchedulerLimits.SafetyInterval : wait;
                 NextWakeUtc = _clock.GetUtcNow() + wait;
-                _timer = _clock.CreateTimer(_ => _ = TickAsync(), null, wait, Timeout.InfiniteTimeSpan);
+                ArmPieceLocked();
                 LogNext(next);
             }
         }
@@ -583,9 +600,60 @@ public sealed class PostScheduler : IDisposable
             }
 
             NextWakeUtc = _clock.GetUtcNow() + wait;
-            _timer = _clock.CreateTimer(_ => _ = TickAsync(), null, wait, Timeout.InfiniteTimeSpan);
+            ArmPieceLocked();
         }
 
         PassCompleted?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Sets the timer for the next piece of the wait up to <see cref="NextWakeUtc"/> (at most <see cref="SchedulerLimits.SleepCheck"/>).
+    /// Called with <see cref="_timerGate"/> held.
+    /// </summary>
+    private void ArmPieceLocked()
+    {
+        var now = _clock.GetUtcNow();
+        var piece = NextWakeUtc is { } wake ? wake - now : TimeSpan.Zero;
+        piece = piece < TimeSpan.Zero ? TimeSpan.Zero : piece > SchedulerLimits.SleepCheck ? SchedulerLimits.SleepCheck : piece;
+        _pieceDueUtc = now + piece;
+        _timer?.Dispose();
+        _timer = _clock.CreateTimer(_ => OnPiece(), null, piece, Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>
+    /// One piece of the wait ended: the schedule is read when the post's time came; when the piece ended much later than set (the computer
+    /// slept, or the clock was put forward) or much earlier (the clock was put back), the due posts are handled now, with their lateness
+    /// counted from this moment and after a bounded wait for the network. Otherwise only the next piece is set (no database read).
+    /// </summary>
+    private void OnPiece()
+    {
+        var now = _clock.GetUtcNow();
+        TimeSpan off;
+        bool jumped;
+        lock (_timerGate)
+        {
+            if (_stopped || _paused || _timer is null || NextWakeUtc is not { } wake)
+            {
+                return;
+            }
+
+            off = now - _pieceDueUtc;
+            jumped = off > SchedulerLimits.SleepCheck || off < -SchedulerLimits.SleepCheck;
+            if (!jumped && now < wake)
+            {
+                ArmPieceLocked();
+                return;
+            }
+        }
+
+        _ = jumped ? AfterJumpAsync(now, off) : TickAsync();
+    }
+
+    /// <summary>The computer woke up or the clock jumped by <paramref name="off"/>: due posts are handled with lateness counted from <paramref name="noticedUtc"/>.</summary>
+    private async Task AfterJumpAsync(DateTimeOffset noticedUtc, TimeSpan off)
+    {
+        _logger.LogInformation("The timer fired {Off} off its time (the computer slept or the clock changed); handling what is due now", off);
+        await WaitForNetworkAsync(TimeSpan.Zero).ConfigureAwait(false);
+        await TickAsync(noticedUtc).ConfigureAwait(false);
     }
 }

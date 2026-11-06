@@ -19,6 +19,9 @@ public static class TriggerLimits
     /// <summary>A next start that is due already is set this far ahead (a start in the past would not run, or run at once in a loop).</summary>
     public static readonly TimeSpan SoonestStart = TimeSpan.FromMinutes(1);
 
+    /// <summary>How many of the next post times the record keeps for a run that cannot open the database.</summary>
+    public const int KnownPosts = 20;
+
     /// <summary>How long a run waits for the sender lock when a 0.1.3–0.1.4 scheduler was asked to end.</summary>
     public static readonly TimeSpan OldSchedulerWait = TimeSpan.FromSeconds(20);
 }

@@ -3,7 +3,8 @@ using System.Globalization;
 namespace TMPublisher.Background.Triggers;
 
 /// <summary>
-/// The systemd user units of a <see cref="TriggerPlan"/>: a one-shot service that runs the program with <c>--run-due</c> (stopped after an hour),
+/// The systemd user units of a <see cref="TriggerPlan"/>: a one-shot service that runs the program with <c>--run-due</c> (stopped after an hour;
+/// <c>KillMode=process</c>, so the notification process the run started outlives it),
 /// and its timer, only with calendar times (UTC): the next post's time and the safety starts 30, 60 and 120 minutes after it. With
 /// <c>Persistent=true</c> a start missed while the computer was off, asleep or nobody was signed in runs as soon as the timer is back (at
 /// sign-in). No "after boot" or "after the last start" times: such a timer fires at once each time it is written again. Nothing scheduled:
@@ -22,6 +23,10 @@ public static class SystemdUnits
             string.Empty,
             "[Service]",
             "Type=oneshot",
+
+            // Only the run itself is stopped when it ends: the notification process it started (--notify) stays until its last notification
+            // closed. With the default (control-group) systemd would end it together with the run, before the notification is seen.
+            "KillMode=process",
             "ExecStart=" + string.Join(' ', new[] { plan.Program }.Concat(plan.Arguments).Select(Quote)),
             "TimeoutStartSec=" + Minutes(TriggerLimits.RunTimeLimit),
             string.Empty);

@@ -46,6 +46,26 @@ public sealed class TriggerTests
     }
 
     [Fact]
+    public async Task ARetryWaitIsNotCutShortByThePostThatFailed()
+    {
+        var platform = new ScriptedPlatform();
+        using var h = new RunHarness(null, platform);
+        await h.CreateAsync();
+        var account = await h.AccountAsync(platform.Code, "A");
+        var now = h.Clock.GetUtcNow();
+        await h.PostAsync(now.AddMinutes(-1), account);
+        await h.PostAsync(now.AddHours(3), account);
+        var armer = h.Data.GetRequiredService<TriggerArmer>();
+
+        var record = await armer.ArmAsync(TimeSpan.FromMinutes(4), CancellationToken.None);
+        record.NextRunUtc.ShouldBe(now.AddMinutes(4));
+        record.PostTimesUtc.ShouldBe([now.AddMinutes(-1), now.AddHours(3)]);
+
+        // Without a retry wait the due post is started for at once (one minute ahead).
+        (await armer.ArmAsync(null, CancellationToken.None)).NextRunUtc.ShouldBe(now + TriggerLimits.SoonestStart);
+    }
+
+    [Fact]
     public async Task PausedLeavesOnlyTheSignInStartAndOffRemovesTheEntry()
     {
         var platform = new ScriptedPlatform();
@@ -114,6 +134,9 @@ public sealed class TriggerTests
         service.ShouldContain("Type=oneshot");
         service.ShouldContain(@"ExecStart=""/opt/tm publisher/tm-publisher"" --run-due --data-dir ""/home/u/my $$data 100%%""");
         service.ShouldContain("TimeoutStartSec=60min");
+
+        // The run's notification process (--notify, a child of the run) must not be ended with the run.
+        service.ShouldContain("KillMode=process");
         var timer = SystemdUnits.Timer(plan)!.Split('\n');
         timer.Where(l => l.StartsWith("OnCalendar=", StringComparison.Ordinal)).ShouldBe(
             ["OnCalendar=2026-11-06 18:30:00 UTC", "OnCalendar=2026-11-06 19:00:00 UTC", "OnCalendar=2026-11-06 19:30:00 UTC", "OnCalendar=2026-11-06 20:30:00 UTC"]);

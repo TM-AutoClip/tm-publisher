@@ -27,7 +27,8 @@ public sealed class WindowsTaskTrigger(AppPaths paths, ICommandRunner runner, IL
     public async Task<TriggerResult> ApplyAsync(TriggerPlan plan, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(plan);
-        var file = Path.Combine(paths.DataDirectory, "system-trigger.xml");
+        // Its own file for each write: the window and a run may write the task at the same moment.
+        var file = Path.Combine(paths.DataDirectory, "system-trigger-" + Guid.NewGuid().ToString("N") + ".xml");
         try
         {
             await File.WriteAllTextAsync(file, Describe(plan), Encoding.Unicode, cancellationToken).ConfigureAwait(false);

@@ -60,8 +60,10 @@ internal static class WindowProgram
             logger.LogInformation("Drawing with the {Renderer}", options.Gpu ? "graphics card (--gpu)" : "processor");
             var code = BuildAvaloniaApp(options.Gpu).StartWithClassicDesktopLifetime(args);
 
-            // The window is gone: the post being sent may finish, the system scheduler's next start is set, the sender lock is given back.
-            services.GetRequiredService<WindowSender>().Close();
+            // The window is gone: a new start may open a window at once (it sends once this process gave the sender lock back), the post
+            // being sent is finished, the system scheduler's next start is set and the sender lock is given back.
+            instance.Dispose();
+            services.GetRequiredService<WindowSender>().Close(services.GetRequiredService<MainWindowHost>().ClosedForShutdown);
             logger.LogInformation("TM Publisher ended ({Code})", code);
             return code;
         }

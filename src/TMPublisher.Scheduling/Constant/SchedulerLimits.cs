@@ -12,6 +12,14 @@ public static class SchedulerLimits
     /// </summary>
     public static readonly TimeSpan SafetyInterval = TimeSpan.FromMinutes(15);
 
+    /// <summary>
+    /// While the window is open the timer's wait is cut into pieces of at most this length, and each piece compares the wall clock: a system
+    /// timer does not count the time the computer slept, so a single long wait would fire that much late after waking (a post due soon after
+    /// waking would be missed). A piece only looks at the clock; the schedule is read when the post's time came, the computer woke up or the
+    /// clock jumped.
+    /// </summary>
+    public static readonly TimeSpan SleepCheck = TimeSpan.FromMinutes(1);
+
     /// <summary>The wait before a post whose claim failed twice in one run is tried again (never a fast loop).</summary>
     public static readonly TimeSpan ClaimRetry = TimeSpan.FromMinutes(1);
 

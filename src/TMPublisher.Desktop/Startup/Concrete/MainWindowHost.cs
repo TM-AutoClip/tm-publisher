@@ -4,8 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace TMPublisher.Desktop.Startup;
 
 /// <summary>
-/// The main window's life. Since 0.1.3 the window program runs only while the window is open: closing the window ends it, and the background
-/// scheduler (its own small process) keeps sending posts and shows their notifications. A page with unsaved input refuses the first close
+/// The main window's life. The window program runs only while the window is open (and, after it closed, until a post being sent is
+/// finished): closing the window ends it, and the system scheduler starts a short run when the next post is due. A page with unsaved input refuses the first close
 /// once (<see cref="Configure"/>'s <c>canClose</c>). Logging off or shutting down is never refused.
 /// </summary>
 public sealed class MainWindowHost(WindowHost windows, ILogger<MainWindowHost> logger)
@@ -19,6 +19,9 @@ public sealed class MainWindowHost(WindowHost windows, ILogger<MainWindowHost> l
 
     /// <summary>The app is ending (Quit, operating system shutdown): closing is not refused.</summary>
     public bool Quitting { get; private set; }
+
+    /// <summary>The window closed because the system shuts down, restarts or signs out (a post being sent then gets only a short wait).</summary>
+    public bool ClosedForShutdown { get; private set; }
 
     /// <summary>The window closed (the window program ends).</summary>
     public event EventHandler? Closed;
@@ -62,6 +65,11 @@ public sealed class MainWindowHost(WindowHost windows, ILogger<MainWindowHost> l
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
+        if (e.CloseReason == WindowCloseReason.OSShutdown)
+        {
+            ClosedForShutdown = true;
+        }
+
         if (Quitting)
         {
             return;

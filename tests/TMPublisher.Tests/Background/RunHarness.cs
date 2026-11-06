@@ -6,6 +6,7 @@ using TMPublisher.Background.Hosting;
 using TMPublisher.Background.Legacy;
 using TMPublisher.Background.Triggers;
 using TMPublisher.Core.Accounts;
+using TMPublisher.Core.Instance;
 using TMPublisher.Core.Notifications;
 using TMPublisher.Core.Platforms;
 using TMPublisher.Core.Posts;
@@ -46,6 +47,11 @@ internal sealed class RunHarness : IDisposable
     public FakeSystemTrigger Trigger { get; } = new();
 
     public FixedPasswords Passwords { get; } = new("a long master password");
+
+    /// <summary>The keyring does not answer (opening the database fails in the runs).</summary>
+    public bool KeyringFails { get; set; }
+
+    public FakeOldVersion OldVersion { get; } = new();
 
     /// <summary>The services the test uses to prepare the data (like the window).</summary>
     public ServiceProvider Data { get; private set; }
@@ -113,11 +119,13 @@ internal sealed class RunHarness : IDisposable
         {
             s.AddSingleton<TimeProvider>(Clock);
             s.RemoveAll<IKeyProtector>();
-            s.AddSingleton<IKeyProtector, TestKeyProtector>();
+            s.AddSingleton<IKeyProtector>(new TestKeyProtector(() => KeyringFails));
             s.AddSingleton<IKeyProtector>(new PasswordKeyProtector(Passwords, KdfParameters.Fast));
             s.RemoveAll<ISystemTrigger>();
             s.AddSingleton<ISystemTrigger>(Trigger);
             s.RemoveAll<ILegacyAutostart>();
+            s.RemoveAll<IOldVersionCheck>();
+            s.AddSingleton<IOldVersionCheck>(OldVersion);
             s.RemoveAll<INotifier>();
             s.AddSingleton<INotifier>(Notifier);
             s.RemoveAll<IPlatform>();

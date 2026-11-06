@@ -13,7 +13,7 @@ public sealed class LinuxSystemTrigger(ICommandRunner runner, XdgAutostartEntry 
 {
     /// <summary>The warning of the fallback (English, for the log and the record; Settings shows its own text).</summary>
     public const string FallbackWarning =
-        "No systemd user session: TM Publisher sends when you sign in and while its window is open, not at a post's time while it is closed.";
+        "No systemd user session: posts are sent only while the TM Publisher window is open; a post whose time passes while it is closed is not sent and waits for the user.";
 
     private bool? _systemd;
 

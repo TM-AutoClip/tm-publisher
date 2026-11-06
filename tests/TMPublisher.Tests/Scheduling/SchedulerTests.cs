@@ -87,6 +87,31 @@ public sealed class SchedulerTests
     }
 
     [Fact]
+    public async Task AWaitThatEndsLateHandlesTheDuePostsAsAfterWaking()
+    {
+        var platform = new ScriptedPlatform();
+        using var h = await SchedulerHarness.CreateAsync(platform);
+        var account = await h.AccountAsync(platform.Code, "A");
+        var post = await h.PostAsync(h.Clock.GetUtcNow().AddHours(2), account);
+        await h.Scheduler.StartAsync(Ct);
+
+        // A piece of the wait only looks at the clock.
+        h.Clock.Advance(SchedulerLimits.SleepCheck);
+        await Task.Delay(50, Ct);
+        h.Scheduler.NextWakeUtc.ShouldBe(h.Clock.GetUtcNow() - SchedulerLimits.SleepCheck + SchedulerLimits.SafetyInterval);
+
+        // The computer slept past the post's time (here: the clock jumps) and the network is not back yet: the post waits for it.
+        h.Scheduler.NetworkAvailable = () => false;
+        h.Clock.Advance(TimeSpan.FromHours(2));
+        await Task.Delay(100, Ct);
+        platform.Sent.ShouldBeEmpty();
+        h.Scheduler.NetworkAvailable = () => true;
+        h.Clock.Advance(SchedulerLimits.ResumeNetworkCheck);
+        (await h.WaitForAsync(post, PostStatus.Done)).Status.ShouldBe(PostStatus.Done);
+        platform.Sent.Count.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task ReloadArmsThePostsOfReplacedData()
     {
         var platform = new ScriptedPlatform();

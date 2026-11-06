@@ -12,13 +12,12 @@ namespace TMPublisher.Desktop.Sending;
 /// The open window is the sender of its data folder: after unlock it takes the sender lock (<see cref="SenderGate"/>; while a run the system
 /// scheduler started is still sending, it tries again every few seconds) and runs the schedule's timer (<see cref="PostScheduler"/>). After every
 /// pass, and when the window closes, it sets the system scheduler's next start (<see cref="TriggerArmer"/>), so the posts go out while it is
-/// closed too. Closing waits a moment for a post being sent, then gives the lock back.
+/// closed too. Closing lets a post being sent finish (without a window), then gives the lock back.
 /// </summary>
 public sealed class WindowSender : IStartupTask, IDisposable
 {
     private static readonly TimeSpan Retry = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan HoldPoll = TimeSpan.FromMilliseconds(500);
-    private static readonly TimeSpan QuitWait = TimeSpan.FromSeconds(15);
     private readonly SenderGate _gate;
     private readonly PostScheduler _scheduler;
     private readonly TriggerArmer _armer;
@@ -51,6 +50,15 @@ public sealed class WindowSender : IStartupTask, IDisposable
         _logger = logger;
         _scheduler.PassCompleted += (_, _) => _ = ArmAsync(_scheduler.RetryAfter);
     }
+
+    /// <summary>How long closing waits for a post being sent before it says so in the log (and the longest wait when the system ends).</summary>
+    internal TimeSpan QuitWait { get; set; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// The longest wait for a post being sent when the window closed (as long as a run may take): the program stays without a window until
+    /// the post is sent, so an upload is never cut off half way.
+    /// </summary>
+    internal TimeSpan SendWait { get; set; } = TriggerLimits.RunTimeLimit;
 
     /// <summary>Raised (on a pool thread) when what <see cref="IsSending"/>, <see cref="IsPaused"/> or <see cref="Trigger"/> show may have changed.</summary>
     public event EventHandler? StateChanged;
@@ -177,10 +185,11 @@ public sealed class WindowSender : IStartupTask, IDisposable
     }
 
     /// <summary>
-    /// The window closes: no new post is taken, a post being sent gets <see cref="QuitWait"/> to finish (otherwise the next sender shows it as
-    /// stopped), the next start is set and the lock is given back.
+    /// The window closed: no new post is taken; a post being sent is finished (the program stays without a window until it is sent, at most
+    /// <see cref="SendWait"/>; only <see cref="QuitWait"/> when the system is shutting down or signing out, otherwise the next sender shows it
+    /// as stopped), then the next start is set and the lock is given back.
     /// </summary>
-    public void Close()
+    public void Close(bool systemEnding = false)
     {
         if (Interlocked.Exchange(ref _closing, 1) == 1)
         {
@@ -195,7 +204,22 @@ public sealed class WindowSender : IStartupTask, IDisposable
                 var stop = _scheduler.StopAsync(onlyIfIdle: false, CancellationToken.None);
                 if (!stop.Wait(QuitWait))
                 {
-                    _logger.LogWarning("A post was still being sent after {Wait}; closing anyway (the next sender shows it as stopped)", QuitWait);
+                    if (systemEnding)
+                    {
+                        _logger.LogWarning("A post was still being sent after {Wait} while the system ends; closing anyway (the next sender shows it as stopped)", QuitWait);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("A post is still being sent; the program stays open without a window until it is sent (at most {Wait})", SendWait);
+                        if (stop.Wait(SendWait > QuitWait ? SendWait - QuitWait : TimeSpan.Zero))
+                        {
+                            _logger.LogInformation("The post being sent when the window closed is finished");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("A post was still being sent after {Wait}; closing anyway (the next sender shows it as stopped)", SendWait);
+                        }
+                    }
                 }
 
                 _started = false;
@@ -261,17 +285,27 @@ public sealed class WindowSender : IStartupTask, IDisposable
             _retry?.Dispose();
             _retry = null;
             _waitLogged = false;
-            if (_everStarted)
+
+            // Sending from here on (the first pass may already send a due post): closing now waits for it like for any other.
+            _started = true;
+            try
             {
-                await _scheduler.StartAgainAsync(CancellationToken.None).ConfigureAwait(false);
+                if (_everStarted)
+                {
+                    await _scheduler.StartAgainAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _scheduler.StartAsync(CancellationToken.None, _pause.IsPaused).ConfigureAwait(false);
+                }
             }
-            else
+            catch
             {
-                await _scheduler.StartAsync(CancellationToken.None, _pause.IsPaused).ConfigureAwait(false);
+                _started = false;
+                throw;
             }
 
             _everStarted = true;
-            _started = true;
             _logger.LogInformation("This window sends the scheduled posts while it is open{Paused}", _pause.IsPaused ? " (paused)" : string.Empty);
             StateChanged?.Invoke(this, EventArgs.Empty);
         }

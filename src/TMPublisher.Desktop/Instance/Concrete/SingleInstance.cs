@@ -15,6 +15,7 @@ public sealed class SingleInstance : IDisposable
     private readonly InstanceLock? _lock;
     private readonly string _name;
     private readonly CancellationTokenSource _stop = new();
+    private int _disposed;
 
     private SingleInstance(InstanceLock? held, string name)
     {
@@ -69,6 +70,12 @@ public sealed class SingleInstance : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        // Disposed when the window closed and again at the end of the program.
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        {
+            return;
+        }
+
         _stop.Cancel();
         _lock?.Dispose();
         _stop.Dispose();

@@ -34,6 +34,7 @@ public sealed class SystemIntegrationTests
             (await trigger.ApplyAsync(plan, Ct)).State.ShouldBe(TriggerState.On);
             (await trigger.ExistsAsync(name, Ct)).ShouldBeTrue();
             (await trigger.ApplyAsync(plan with { NextUtc = DateTimeOffset.UtcNow.AddDays(3) }, Ct)).State.ShouldBe(TriggerState.On);
+            Directory.GetFiles(folder, "system-trigger*.xml").ShouldBeEmpty();
         }
         finally
         {
@@ -42,7 +43,6 @@ public sealed class SystemIntegrationTests
         }
 
         (await trigger.ExistsAsync(name, Ct)).ShouldBeFalse();
-        File.Exists(Path.Combine(folder, "system-trigger.xml")).ShouldBeFalse();
     }
 
     [Fact]

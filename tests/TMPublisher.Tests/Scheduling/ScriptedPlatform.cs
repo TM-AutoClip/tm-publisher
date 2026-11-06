@@ -15,6 +15,9 @@ internal sealed class ScriptedPlatform(string code = "scripted", int? dailyLimit
 
     public Func<string, ProcessingCheck> Processing { get; set; } = _ => new ProcessingCheck(TargetStatus.Processing);
 
+    /// <summary>When set, each request waits for it before it answers (a long upload).</summary>
+    public TaskCompletionSource? Hold { get; set; }
+
     public string Code => code;
 
     public string DisplayName => "Scripted";
@@ -37,11 +40,16 @@ internal sealed class ScriptedPlatform(string code = "scripted", int? dailyLimit
 
     public ITokenRefresher? Refresher { get; set; }
 
-    public Task<PublishResult> PublishAsync(PublishRequest request, IProgress<double>? progress, CancellationToken cancellationToken)
+    public async Task<PublishResult> PublishAsync(PublishRequest request, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         Sent.Add(request.Target);
+        if (Hold is { } hold)
+        {
+            await hold.Task.WaitAsync(cancellationToken);
+        }
+
         var step = Script.Count > 0 ? Script.Dequeue() : _ => new PublishResult("id-" + Sent.Count, "https://example.com/" + Sent.Count, TargetStatus.Published);
-        return Task.FromResult(step(request));
+        return step(request);
     }
 
     public Task<ProcessingCheck> CheckProcessingAsync(PublishRequest request, string externalId, CancellationToken cancellationToken) =>

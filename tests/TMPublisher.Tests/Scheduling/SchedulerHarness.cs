@@ -32,6 +32,7 @@ internal sealed class SchedulerHarness : IDisposable
         Watcher = new ProcessingWatcher(Posts, Accounts, directory, renewer, Notifier, text, Clock, NullLogger<ProcessingWatcher>.Instance);
         Failing = new FailingPostStore(Posts);
         Scheduler = new PostScheduler(Failing, Sender, OldVersion, Watcher, Notifier, text, Clock, NullLogger<PostScheduler>.Instance);
+        Scheduler.NetworkAvailable = () => true;
         Decisions = new PostDecisions(Posts, Clock, NullLogger<PostDecisions>.Instance);
     }
 
