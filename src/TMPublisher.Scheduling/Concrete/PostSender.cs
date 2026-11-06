@@ -39,17 +39,19 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
         var pending = post.Targets.Where(t => t.Status == TargetStatus.Pending).OrderBy(t => t.Order).ToList();
         if (pending.Count == 0 && post.Targets.Count == 0)
         {
-            return await BlockAsync(post, [], text["problem.no_targets"], cancellationToken).ConfigureAwait(false);
+            return await BlockAsync(post, [], text["problem.no_targets"], "no targets", cancellationToken).ConfigureAwait(false);
         }
 
         var resolved = new List<(PostTarget Target, Account Account, IPlatform Platform)>();
         var problems = new List<(PostTarget Target, string Message)>();
+        var reasons = new List<string>();
         foreach (var target in pending)
         {
-            var (account, platform, problem) = await PreflightAsync(post, target, cancellationToken).ConfigureAwait(false);
+            var (account, platform, problem, reason) = await PreflightAsync(post, target, cancellationToken).ConfigureAwait(false);
             if (problem is not null)
             {
                 problems.Add((target, problem));
+                reasons.Add((platform?.Code ?? account?.Platform ?? "?") + ": " + reason);
             }
             else
             {
@@ -59,13 +61,14 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
 
         if (problems.Count > 0)
         {
-            return await BlockAsync(post, problems, problems[0].Message, cancellationToken).ConfigureAwait(false);
+            return await BlockAsync(post, problems, problems[0].Message, string.Join("; ", reasons), cancellationToken).ConfigureAwait(false);
         }
 
         post.Status = PostStatus.Publishing;
         post.UpdatedAtUtc = clock.GetUtcNow();
         await posts.SaveAsync(post, cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("Post {PostId}: sending to {Count} targets", post.Id, resolved.Count);
+        var started = clock.GetTimestamp();
+        logger.LogInformation("Post {PostId}: sending to {Count} targets ({Platforms})", post.Id, resolved.Count, string.Join(", ", resolved.Select(r => r.Platform.Code)));
         foreach (var (target, account, platform) in resolved)
         {
             if (!await SendTargetAsync(post, target, account, platform, cancellationToken).ConfigureAwait(false))
@@ -73,6 +76,7 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
                 post.Status = PostStatus.Stopped;
                 post.UpdatedAtUtc = clock.GetUtcNow();
                 await posts.SaveAsync(post, cancellationToken).ConfigureAwait(false);
+                logger.LogWarning("Post {PostId}: stopped after {Elapsed}; the remaining targets wait for the user", post.Id, Elapsed(started));
                 return post.Status;
             }
         }
@@ -80,21 +84,23 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
         post.Status = PostStatus.Done;
         post.UpdatedAtUtc = clock.GetUtcNow();
         await posts.SaveAsync(post, cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("Post {PostId}: done", post.Id);
+        logger.LogInformation("Post {PostId}: done in {Elapsed}", post.Id, Elapsed(started));
         return post.Status;
     }
 
-    private async Task<(Account? Account, IPlatform? Platform, string? Problem)> PreflightAsync(Post post, PostTarget target, CancellationToken cancellationToken)
+    /// <summary>The check before sending: the problem shown to the user, and the reason for the log (no account names, no post text).</summary>
+    private async Task<(Account? Account, IPlatform? Platform, string? Problem, string? Reason)> PreflightAsync(Post post, PostTarget target,
+        CancellationToken cancellationToken)
     {
         var account = await accounts.GetAsync(target.AccountId, cancellationToken).ConfigureAwait(false);
         if (account is null)
         {
-            return (null, null, text["problem.account_removed"]);
+            return (null, null, text["problem.account_removed"], "account removed");
         }
 
         if (platforms.Find(account.Platform) is not { } platform)
         {
-            return (account, null, text.Format("problem.platform_unknown", account.Platform));
+            return (account, null, text.Format("problem.platform_unknown", account.Platform), "unknown platform");
         }
 
         var now = clock.GetUtcNow();
@@ -102,23 +108,27 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
         var expired = secrets.AccessExpiresAtUtc is { } expiry && expiry <= now && platform.Refresher is null;
         if (account.State == AccountState.NeedsReconnect || account.ReconnectByUtc <= now || expired || secrets.Values.Count == 0)
         {
-            return (account, platform, text.Format("problem.reconnect", platform.DisplayName, account.DisplayName));
+            return (account, platform, text.Format("problem.reconnect", platform.DisplayName, account.DisplayName),
+                "account " + account.Id + " must be connected again");
         }
 
         if (PostValidator.Validate(platform, post, target, FileExists) is { Count: > 0 } invalid)
         {
-            return (account, platform, platform.DisplayName + " · " + account.DisplayName + ": " + string.Join("; ", invalid.Select(p => text.Format(p.Key, p.Args))));
+            return (account, platform, platform.DisplayName + " · " + account.DisplayName + ": " + string.Join("; ", invalid.Select(p => text.Format(p.Key, p.Args))),
+                "invalid (" + string.Join(", ", invalid.Select(p => p.Key)) + ")");
         }
 
         if (await quotas.FullRuleAsync(account, platform, cancellationToken).ConfigureAwait(false) is { } rule)
         {
-            return (account, platform, text.Format("problem.quota", platform.DisplayName, account.DisplayName, rule.MaxPosts, text["quota." + rule.Window.ToString().ToLowerInvariant()]));
+            return (account, platform, text.Format("problem.quota", platform.DisplayName, account.DisplayName, rule.MaxPosts, text["quota." + rule.Window.ToString().ToLowerInvariant()]),
+                "local limit of " + rule.MaxPosts + " per " + rule.Window + " reached");
         }
 
-        return (account, platform, null);
+        return (account, platform, null, null);
     }
 
-    private async Task<PostStatus> BlockAsync(Post post, List<(PostTarget Target, string Message)> problems, string summary, CancellationToken cancellationToken)
+    private async Task<PostStatus> BlockAsync(Post post, List<(PostTarget Target, string Message)> problems, string summary, string reason,
+        CancellationToken cancellationToken)
     {
         foreach (var (target, message) in problems)
         {
@@ -128,7 +138,7 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
         post.Status = PostStatus.Blocked;
         post.UpdatedAtUtc = clock.GetUtcNow();
         await posts.SaveAsync(post, cancellationToken).ConfigureAwait(false);
-        logger.LogWarning("Post {PostId} blocked before sending: {Reason}", post.Id, Redactor.Redact(summary));
+        logger.LogWarning("Post {PostId} blocked before sending: {Reason}", post.Id, reason);
         notifier.Notify(new AppNotification(NotificationKind.Failed, text["notify.blocked"], summary));
         return post.Status;
     }
@@ -139,6 +149,8 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
         target.Status = TargetStatus.Publishing;
         target.Message = null;
         await posts.SaveTargetAsync(target, cancellationToken).ConfigureAwait(false);
+        var started = clock.GetTimestamp();
+        logger.LogInformation("Post {PostId}: sending to {Platform} target {TargetId} (account {AccountId})", post.Id, platform.Code, target.Id, account.Id);
         try
         {
             var fresh = await renewer.GetFreshAsync(account, cancellationToken).ConfigureAwait(false);
@@ -152,7 +164,7 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
             target.PublishedAtUtc = now;
             await posts.SaveTargetAsync(target, cancellationToken).ConfigureAwait(false);
             await log.AddAsync(new PublishLogEntry(account.Id, platform.Code, post.Id, now, Success: true), cancellationToken).ConfigureAwait(false);
-            logger.LogInformation("Post {PostId}: {Platform} target {TargetId} is {State}", post.Id, platform.Code, target.Id, result.State);
+            logger.LogInformation("Post {PostId}: {Platform} target {TargetId} is {State} after {Elapsed}", post.Id, platform.Code, target.Id, result.State, Elapsed(started));
             switch (result.State)
             {
                 case TargetStatus.NeedsApproval:
@@ -180,9 +192,12 @@ public sealed class PostSender(IPostStore posts, IAccountStore accounts, ICreden
                 await renewer.MarkReconnectAsync(account, CancellationToken.None).ConfigureAwait(false);
             }
 
-            logger.LogError("Post {PostId}: {Platform} target {TargetId} failed ({Type}): {Reason}", post.Id, platform.Code, target.Id, ex.GetType().Name, reason);
+            logger.LogError(ex, "Post {PostId}: {Platform} target {TargetId} failed after {Elapsed} ({Type}): {Reason}", post.Id, platform.Code, target.Id,
+                Elapsed(started), ex.GetType().Name, reason);
             notifier.Notify(new AppNotification(NotificationKind.Failed, text["notify.failed"], who + ": " + target.Message));
             return false;
         }
     }
+
+    private string Elapsed(long started) => clock.GetElapsedTime(started).TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s";
 }

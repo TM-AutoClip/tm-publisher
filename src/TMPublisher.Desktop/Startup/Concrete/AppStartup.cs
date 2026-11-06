@@ -69,7 +69,7 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
     public void ReportUnhandled(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
-        logger.LogError(exception, "Unhandled exception in the window ({Type}); the app keeps running", exception.GetType().Name);
+        logger.LogCritical(exception, "Unhandled exception in the window ({Type}); the app keeps running", exception.GetType().Name);
         if (_shell is not null)
         {
             _shell.Status = text.Format("error.unexpected", TMPublisher.Core.Security.Redactor.Redact(exception.Message));
@@ -145,7 +145,7 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "The database could not be opened automatically");
+            logger.LogCritical(ex, "The database could not be opened automatically (the key protection of this computer failed)");
             ShowUnlock(text.Format("unlock.automatic_failed", ex.Message));
         }
     }

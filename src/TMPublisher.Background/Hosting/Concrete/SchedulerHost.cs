@@ -65,7 +65,7 @@ public sealed class SchedulerHost(AppPaths paths, Vault vault, PostScheduler sch
             catch (Exception ex)
             {
                 // Not fatal: without these events the schedule is still read again every few minutes.
-                logger.LogError(ex, "Could not listen for resume / clock events");
+                logger.LogWarning(ex, "Could not listen for resume / clock events; the schedule is still read again every few minutes");
             }
 
             await OpenAsync().ConfigureAwait(false);
@@ -157,7 +157,7 @@ public sealed class SchedulerHost(AppPaths paths, Vault vault, PostScheduler sch
                     catch (Exception ex)
                     {
                         // The keyring may not be unlocked yet right after signing in: tried again at the next wake-up or in a few minutes.
-                        logger.LogError(ex, "The database could not be opened automatically; trying again in {Wait}", SchedulerLimits.SafetyInterval);
+                        logger.LogWarning(ex, "The database could not be opened automatically; trying again in {Wait}", SchedulerLimits.SafetyInterval);
                         SetStatus(SchedulerStatus.Error, Redactor.Redact(ex.Message));
                         _retry?.Dispose();
                         _retry = clock.CreateTimer(_ => _ = OpenAsync(), null, SchedulerLimits.SafetyInterval, Timeout.InfiniteTimeSpan);
@@ -352,7 +352,7 @@ public sealed class SchedulerHost(AppPaths paths, Vault vault, PostScheduler sch
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "The language setting could not be read; English is used");
+            logger.LogWarning(ex, "The language setting could not be read; English is used");
         }
     }
 

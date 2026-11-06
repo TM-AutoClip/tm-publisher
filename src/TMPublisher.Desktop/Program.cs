@@ -40,18 +40,23 @@ internal static class Program
         using var instance = SingleInstance.Acquire(paths.DataDirectory);
         if (!instance.IsFirst)
         {
-            instance.SignalFirst();
+            using var logFile = new FileLoggerProvider(paths.LogDirectory, LogKinds.App);
+            using var loggers = LoggerFactory.Create(b => b.AddProvider(logFile).SetMinimumLevel(LogLevel.Information));
+            instance.SignalFirst(loggers.CreateLogger(typeof(Program)));
             return 0;
         }
 
-        using var services = DesktopServices.Build(paths);
+        using var services = DesktopServices.Build(paths, s => s.AddSingleton(new DrawingMode(options.Gpu)));
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(Program));
-        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-            logger.LogCritical(e.ExceptionObject as Exception, "Unhandled exception (terminating: {Terminating})", e.IsTerminating);
-        TaskScheduler.UnobservedTaskException += (_, e) => logger.LogError(e.Exception, "Unobserved task exception");
-        logger.LogInformation("TM Publisher {Version} starting on {Os}", typeof(Program).Assembly.GetName().Version, Environment.OSVersion.Platform);
+        CrashLogging.Attach(logger);
+        logger.LogInformation("TM Publisher {Version} starting{Folder}", LogHeader.Version, paths.IsDefaultDirectory ? string.Empty : " (own data folder)");
 
-        instance.ShowRequested += (_, _) => services.GetRequiredService<Startup.AppStartup>().ShowMainWindow();
+        instance.Logger = services.GetRequiredService<ILoggerFactory>().CreateLogger<SingleInstance>();
+        instance.ShowRequested += (_, _) =>
+        {
+            logger.LogInformation("A second start asked for the window");
+            services.GetRequiredService<Startup.AppStartup>().ShowMainWindow();
+        };
 
         // A command that throws (browser launch, a database write) must not end the window: logged, shown, handled.
         Dispatcher.UIThread.UnhandledException += (_, e) =>
@@ -63,7 +68,9 @@ internal static class Program
         try
         {
             logger.LogInformation("Drawing with the {Renderer}", options.Gpu ? "graphics card (--gpu)" : "processor");
-            return BuildAvaloniaApp(options.Gpu).StartWithClassicDesktopLifetime(args);
+            var code = BuildAvaloniaApp(options.Gpu).StartWithClassicDesktopLifetime(args);
+            logger.LogInformation("TM Publisher ended ({Code})", code);
+            return code;
         }
         catch (Exception ex)
         {
@@ -92,12 +99,17 @@ internal static class Program
     /// <summary>The short-lived notification process of the background scheduler: no database, no main window.</summary>
     private static int RunNotifications(AppPaths paths, string[] args, bool gpu)
     {
-        using var loggers = LoggerFactory.Create(b => b.AddProvider(new FileLoggerProvider(paths.LogDirectory, "notify")).SetMinimumLevel(LogLevel.Information));
+        using var logFile = new FileLoggerProvider(paths.LogDirectory, LogKinds.Notify);
+        using var loggers = LoggerFactory.Create(b => b.AddProvider(logFile).SetMinimumLevel(LogLevel.Information));
         var logger = loggers.CreateLogger(typeof(Program));
+        CrashLogging.Attach(logger);
+        logger.LogInformation("Notification process starting");
         try
         {
             App.Notify = new NotifyMode(new ToastStack(), loggers.CreateLogger<NotifyMode>());
-            return BuildAvaloniaApp(gpu).StartWithClassicDesktopLifetime(args);
+            var code = BuildAvaloniaApp(gpu).StartWithClassicDesktopLifetime(args);
+            logger.LogInformation("Notification process ended ({Code})", code);
+            return code;
         }
         catch (Exception ex)
         {
@@ -130,6 +142,7 @@ internal static class Program
             return 1;
         }
 
+        logger.LogInformation("Background scheduler started; the window program ends (--tray)");
         return 0;
     }
 }

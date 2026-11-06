@@ -35,6 +35,9 @@ public sealed class PostScheduler : IDisposable
     private int _stopRequests;
     private int _failures;
     private int _oldVersionSeen;
+    private DateTimeOffset? _loggedNext;
+    private bool _nextLogged;
+    private DateTimeOffset _heartbeatUtc = DateTimeOffset.MinValue;
 
     /// <summary>Creates.</summary>
     public PostScheduler(IPostStore posts, PostSender sender, IOldVersionCheck oldVersion, ProcessingWatcher watcher, INotifier notifier,
@@ -437,6 +440,38 @@ public sealed class PostScheduler : IDisposable
             wait = wait < atLeast ? atLeast : wait > SchedulerLimits.SafetyInterval ? SchedulerLimits.SafetyInterval : wait;
             NextWakeUtc = _clock.GetUtcNow() + wait;
             _timer = _clock.CreateTimer(_ => _ = TickAsync(), null, wait, Timeout.InfiniteTimeSpan);
+            LogNext(next);
+        }
+    }
+
+    /// <summary>
+    /// One line when the next post changes (not at every wake-up), and a sign of life at most once per <see cref="SchedulerLimits.Heartbeat"/>
+    /// (the timer wakes every <see cref="SchedulerLimits.SafetyInterval"/> anyway; no extra timer).
+    /// </summary>
+    private void LogNext(Post? next)
+    {
+        var now = _clock.GetUtcNow();
+        if (!_nextLogged || _loggedNext != next?.ScheduledAtUtc)
+        {
+            _nextLogged = true;
+            _loggedNext = next?.ScheduledAtUtc;
+            _heartbeatUtc = now;
+            if (next?.ScheduledAtUtc is { } at)
+            {
+                _logger.LogInformation("Next post {PostId} at {Time:yyyy-MM-dd HH:mm} UTC", next.Id, at);
+            }
+            else
+            {
+                _logger.LogInformation("No post is scheduled");
+            }
+
+            return;
+        }
+
+        if (now - _heartbeatUtc >= SchedulerLimits.Heartbeat)
+        {
+            _heartbeatUtc = now;
+            _logger.LogInformation("Scheduler running; next post {Next}", _loggedNext is { } at ? at.ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture) : "none");
         }
     }
 

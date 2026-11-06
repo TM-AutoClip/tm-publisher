@@ -60,7 +60,10 @@ public static class DesktopServices
     {
         ArgumentNullException.ThrowIfNull(paths);
         var services = new ServiceCollection();
-        services.AddLogging(b => b.AddProvider(new FileLoggerProvider(paths.LogDirectory)).SetMinimumLevel(LogLevel.Information));
+        // The container makes (and on dispose closes) the log file.
+        services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information));
+        services.AddSingleton<ILoggerProvider>(_ => new FileLoggerProvider(paths.LogDirectory, LogKinds.App));
+        services.AddSingleton(new DrawingMode(Gpu: false));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(paths);
 
@@ -127,7 +130,7 @@ public static class DesktopServices
             .Register<SettingsViewModel, SettingsView>());
 
         // Platforms (one class each) and the services around them.
-        services.AddSingleton(HttpTransport.Network);
+        services.AddSingleton(s => HttpTransport.Network.WithLog(s.GetRequiredService<ILoggerFactory>().CreateLogger("TMPublisher.Http")));
         services.AddSingleton<ILoopbackListener, LoopbackListener>();
         services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
         services.AddSingleton<IRefreshGate, FileRefreshGate>();

@@ -99,6 +99,7 @@ public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore ac
             return;
         }
 
+        logger.LogInformation("Group {GroupId} saved with {Members} accounts", group.Id, members.Count);
         Status = text["groups.saved"];
         var id = group.Id;
         await ActivateAsync().ConfigureAwait(true);
@@ -121,6 +122,8 @@ public sealed partial class GroupsViewModel(IGroupStore groups, IAccountStore ac
                 Status = text.Format("error.generic", ex.Message);
                 return;
             }
+
+            logger.LogInformation("Group {GroupId} deleted", group.Id);
 
             await ActivateAsync().ConfigureAwait(true);
         }

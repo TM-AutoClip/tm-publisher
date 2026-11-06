@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using TMPublisher.Runtime.Instance;
 
 namespace TMPublisher.Desktop.Instance;
@@ -28,6 +29,9 @@ public sealed class SingleInstance : IDisposable
     /// <summary>Raised (on a pool thread) when a second start asks for the window.</summary>
     public event EventHandler? ShowRequested;
 
+    /// <summary>Where the first window logs a failed request from a second start (set once the services are built).</summary>
+    public ILogger? Logger { get; set; }
+
     /// <summary>Whether this is the first window (it holds the lock file).</summary>
     public bool IsFirst => _lock is not null;
 
@@ -44,19 +48,21 @@ public sealed class SingleInstance : IDisposable
         return new SingleInstance(held, "TMPublisher-" + hash + "-window");
     }
 
-    /// <summary>Asks the first window to show itself.</summary>
-    public void SignalFirst()
+    /// <summary>Asks the first window to show itself; the outcome goes to <paramref name="logger"/>.</summary>
+    public void SignalFirst(ILogger logger)
     {
+        ArgumentNullException.ThrowIfNull(logger);
         try
         {
             using var client = new NamedPipeClientStream(".", _name, PipeDirection.Out, PipeOptions.CurrentUserOnly);
             client.Connect(2000);
             client.Write("show\n"u8);
+            logger.LogInformation("TM Publisher is already open for this data folder; asked its window to come to the front");
         }
         catch (Exception ex) when (ex is IOException or TimeoutException or UnauthorizedAccessException)
         {
             // The first window is closing or not listening yet; nothing else to do for a second start.
-            Console.Error.WriteLine("TM Publisher is already running: " + ex.Message);
+            logger.LogWarning("TM Publisher is already open for this data folder, but its window did not answer ({Type}: {Reason})", ex.GetType().Name, ex.Message);
         }
     }
 
@@ -87,7 +93,15 @@ public sealed class SingleInstance : IDisposable
             }
             catch (IOException ex)
             {
-                Console.Error.WriteLine("Single instance pipe error: " + ex.Message);
+                if (Logger is { } logger)
+                {
+                    logger.LogWarning("The request channel for a second start failed ({Type}: {Reason}); listening again in a second", ex.GetType().Name, ex.Message);
+                }
+                else
+                {
+                    Console.Error.WriteLine("Single instance pipe error: " + ex.Message);
+                }
+
                 await Task.Delay(1000).ConfigureAwait(false);
             }
         }

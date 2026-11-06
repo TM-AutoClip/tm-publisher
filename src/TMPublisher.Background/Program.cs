@@ -5,6 +5,7 @@ using TMPublisher.Background.Hosting;
 using TMPublisher.Background.Ipc;
 using TMPublisher.Background.Os;
 using TMPublisher.Runtime.Instance;
+using TMPublisher.Runtime.Logging;
 using TMPublisher.Runtime.Paths;
 
 namespace TMPublisher.Background;
@@ -32,11 +33,8 @@ internal static class Program
 
         using var services = BackgroundServices.Build(paths);
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(Program));
-        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-            logger.LogCritical(e.ExceptionObject as Exception, "Unhandled exception (terminating: {Terminating})", e.IsTerminating);
-        TaskScheduler.UnobservedTaskException += (_, e) => logger.LogError(e.Exception, "Unobserved task exception");
-        logger.LogInformation("TM Publisher scheduler {Version} starting on {Os}{Folder}", typeof(Program).Assembly.GetName().Version?.ToString(3),
-            Environment.OSVersion.Platform, paths.IsDefaultDirectory ? string.Empty : " (own data folder)");
+        CrashLogging.Attach(logger);
+        logger.LogInformation("TM Publisher scheduler {Version} starting{Folder}", LogHeader.Version, paths.IsDefaultDirectory ? string.Empty : " (own data folder)");
         var oldVersion = services.GetRequiredService<OldVersionGuard>();
         using var oldName = oldVersion.HoldName();
         if (oldVersion.OldVersionRuns())

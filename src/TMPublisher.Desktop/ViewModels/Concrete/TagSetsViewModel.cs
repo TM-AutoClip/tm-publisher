@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Platforms;
 using TMPublisher.Core.Settings;
 using TMPublisher.Core.Text;
@@ -8,7 +9,8 @@ using TMPublisher.Desktop.Localization;
 namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>Default tags per platform: they fill the compose form (each post can still change them).</summary>
-public sealed partial class TagSetsViewModel(ITagSetStore store, IPlatformDirectory platforms, Localizer text) : PageViewModelBase, IPageInfo
+public sealed partial class TagSetsViewModel(ITagSetStore store, IPlatformDirectory platforms, Localizer text, ILogger<TagSetsViewModel> logger)
+    : PageViewModelBase, IPageInfo
 {
     /// <inheritdoc />
     public static string TitleKey => "nav.tags";
@@ -38,11 +40,21 @@ public sealed partial class TagSetsViewModel(ITagSetStore store, IPlatformDirect
     [RelayCommand]
     public async Task SaveAsync()
     {
-        foreach (var row in Rows)
+        try
         {
-            await store.SaveAsync(new TagSet { Platform = row.Platform.Code, Tags = TagLine.Parse(row.Line) }, CancellationToken.None).ConfigureAwait(true);
+            foreach (var row in Rows)
+            {
+                await store.SaveAsync(new TagSet { Platform = row.Platform.Code, Tags = TagLine.Parse(row.Line) }, CancellationToken.None).ConfigureAwait(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Default tags could not be saved");
+            Status = text.Format("error.generic", ex.Message);
+            return;
         }
 
+        logger.LogInformation("Default tags saved for {Count} platforms", Rows.Count);
         Status = text["tags.saved"];
     }
 }

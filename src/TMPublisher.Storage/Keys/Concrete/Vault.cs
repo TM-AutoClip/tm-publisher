@@ -85,7 +85,7 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
         var envelope = KeyFile.Read(paths.KeyFile) ?? throw new InvalidOperationException("There is no key file; the database was never created here.");
         if (!File.Exists(paths.DatabaseFile))
         {
-            logger.LogError("The key file exists but the database file {File} is missing; nothing is created", Path.GetFileName(paths.DatabaseFile));
+            logger.LogCritical("The key file exists but the database file {File} is missing; nothing is created", Path.GetFileName(paths.DatabaseFile));
             throw new InvalidOperationException("The database file is missing although its key is here; no new empty database was made. Restore a backup, "
                 + "or put the database file back (a restore keeps the previous one as publisher.db.before-restore-<time>).");
         }
@@ -119,7 +119,7 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
         ArgumentNullException.ThrowIfNull(dek);
         if (!File.Exists(paths.DatabaseFile))
         {
-            logger.LogError("A key was handed over but the database file {File} is missing; nothing is created", Path.GetFileName(paths.DatabaseFile));
+            logger.LogCritical("A key was handed over but the database file {File} is missing; nothing is created", Path.GetFileName(paths.DatabaseFile));
             throw new InvalidOperationException("The database file is missing; no new empty database was made.");
         }
 

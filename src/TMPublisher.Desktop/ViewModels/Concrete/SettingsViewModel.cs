@@ -209,6 +209,27 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
     {
         var s = session.Settings;
         var languageChanged = Language is not null && Language.Code != text.Language;
+        var changed = new List<string>();
+        if (Language is not null && Language.Code != s.Language)
+        {
+            changed.Add("language");
+        }
+
+        if (s.NotificationsEnabled != NotificationsEnabled || s.NotificationSeconds != (int)Math.Clamp(NotificationSeconds, 3, 3600))
+        {
+            changed.Add("notifications");
+        }
+
+        if (s.TikTokDraftByDefault != TikTokDraftByDefault)
+        {
+            changed.Add("tiktok draft default");
+        }
+
+        if (s.StartWithSystem != StartWithSystem)
+        {
+            changed.Add("start with the system");
+        }
+
         s.Language = Language?.Code ?? s.Language;
         s.NotificationsEnabled = NotificationsEnabled;
         s.NotificationSeconds = (int)Math.Clamp(NotificationSeconds, 3, 3600);
@@ -225,6 +246,7 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
             }
 
             scheduler.Wake();
+            logger.LogInformation("Settings saved (changed: {Changed})", changed.Count == 0 ? "nothing" : string.Join(", ", changed));
             Status = text[languageChanged ? "settings.saved_restart" : "settings.saved"];
         }
         catch (Exception ex)

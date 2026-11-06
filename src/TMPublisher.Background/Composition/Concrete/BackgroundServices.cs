@@ -49,7 +49,9 @@ public static class BackgroundServices
         ArgumentNullException.ThrowIfNull(paths);
         var os = OsModules.FirstOrDefault(m => m.IsCurrent) ?? throw new PlatformNotSupportedException("TM Publisher runs on Windows and Linux.");
         var services = new ServiceCollection();
-        services.AddLogging(b => b.AddProvider(new FileLoggerProvider(paths.LogDirectory, "scheduler")).SetMinimumLevel(LogLevel.Information));
+        // The container makes (and on dispose closes) the log file.
+        services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information));
+        services.AddSingleton<ILoggerProvider>(_ => new FileLoggerProvider(paths.LogDirectory, LogKinds.Scheduler));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(paths);
 
@@ -71,7 +73,7 @@ public static class BackgroundServices
         services.AddSingleton<IPublishLog, PublishLogStore>();
 
         // Platforms and sending.
-        services.AddSingleton(HttpTransport.Network);
+        services.AddSingleton(s => HttpTransport.Network.WithLog(s.GetRequiredService<ILoggerFactory>().CreateLogger("TMPublisher.Http")));
         services.AddSingleton<ILoopbackListener, LoopbackListener>();
         services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
         services.AddSingleton<IRefreshGate, FileRefreshGate>();
