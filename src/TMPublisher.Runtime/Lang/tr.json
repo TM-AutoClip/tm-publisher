@@ -369,7 +369,7 @@
   "sending.paused": "Duraklatıldı: siz sürdürene kadar ne burada ne de pencere kapalıyken bir şey gönderilir (5 dakikadan fazla geciken gönderiler sonra sizi bekler).",
   "sending.waiting": "Sistem zamanlayıcısının başlattığı bir çalıştırma hâlâ gönderiyor; o bitince bu pencere devralır.",
   "trigger.on": "Kapalıyken: {0} \"{1}\" TM Publisher'ı {2} saatinde başlatır.",
-  "trigger.on_sign_in": "Kapalıyken: {0} \"{1}\" TM Publisher'ı oturum açtığınızda başlatır (şu an zamanlanmış gönderi yok).",
+  "trigger.on_sign_in": "Kapalıyken: {0} \"{1}\" ayarlı; şu an zamanlanmış gönderi yok.",
   "trigger.sign_in_only": "Kapalıyken: systemd kullanıcı oturumu bulunamadı; TM Publisher yalnız oturum açtığınızda ve bu pencere açıkken gönderir, gönderinin saatinde değil.",
   "trigger.failed": "Kapalıyken: sistem zamanlayıcısı ayarlanamadı; gönderiler yalnız bu pencere açıkken gönderilir. Sebep: {0}",
   "trigger.off": "Kapalıyken: kapalı. Gönderiler yalnız bu pencere açıkken gönderilir.",

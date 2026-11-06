@@ -81,11 +81,9 @@ public sealed class TriggerTests
         xml.ShouldStartWith("<?xml version=\"1.0\" encoding=\"UTF-16\"?>");
         var task = XDocument.Parse(xml).Root!;
 
-        var times = task.Descendants(ns + "TimeTrigger").ToList();
-        times.Count.ShouldBe(2);
-        times[0].Element(ns + "StartBoundary")!.Value.ShouldBe("2026-11-06T18:30:00Z");
-        times[1].Element(ns + "StartBoundary")!.Value.ShouldBe("2026-11-06T19:00:00Z");
-        times[1].Element(ns + "Repetition")!.Element(ns + "Interval")!.Value.ShouldBe("PT30M");
+        var times = task.Descendants(ns + "TimeTrigger").Select(t => t.Element(ns + "StartBoundary")!.Value).ToList();
+        times.ShouldBe(["2026-11-06T18:30:00Z", "2026-11-06T19:00:00Z", "2026-11-06T19:30:00Z", "2026-11-06T20:30:00Z"]);
+        task.Descendants(ns + "Repetition").ShouldBeEmpty();
         task.Descendants(ns + "LogonTrigger").Single().Element(ns + "UserId")!.Value.ShouldBe("S-1-5-21-1");
         var principal = task.Descendants(ns + "Principal").Single();
         principal.Element(ns + "LogonType")!.Value.ShouldBe("InteractiveToken");
@@ -108,7 +106,7 @@ public sealed class TriggerTests
     }
 
     [Fact]
-    public void TheSystemdTimerStartsAtThePostCatchesUpAndHasASafetyStart()
+    public void TheSystemdTimerStartsAtThePostCatchesUpAndHasSafetyStarts()
     {
         var plan = new TriggerPlan("tm-publisher-1a2b3c4d", "/opt/tm publisher/tm-publisher", ["--run-due", "--data-dir", "/home/u/my $data 100%"],
             At, Safety: true, WakeToRun: false);
@@ -116,18 +114,17 @@ public sealed class TriggerTests
         service.ShouldContain("Type=oneshot");
         service.ShouldContain(@"ExecStart=""/opt/tm publisher/tm-publisher"" --run-due --data-dir ""/home/u/my $$data 100%%""");
         service.ShouldContain("TimeoutStartSec=60min");
-        var timer = SystemdUnits.Timer(plan).Split('\n');
-        timer.ShouldContain("OnCalendar=2026-11-06 18:30:00 UTC");
+        var timer = SystemdUnits.Timer(plan)!.Split('\n');
+        timer.Where(l => l.StartsWith("OnCalendar=", StringComparison.Ordinal)).ShouldBe(
+            ["OnCalendar=2026-11-06 18:30:00 UTC", "OnCalendar=2026-11-06 19:00:00 UTC", "OnCalendar=2026-11-06 19:30:00 UTC", "OnCalendar=2026-11-06 20:30:00 UTC"]);
         timer.ShouldContain("Persistent=true");
-        timer.ShouldContain("OnUnitActiveSec=30min");
-        timer.ShouldContain("OnStartupSec=1min");
         timer.ShouldContain("Unit=tm-publisher-1a2b3c4d.service");
         timer.ShouldContain("WantedBy=timers.target");
 
-        var idle = SystemdUnits.Timer(plan with { NextUtc = null, Safety = false });
-        idle.ShouldNotContain("OnCalendar");
-        idle.ShouldNotContain("OnUnitActiveSec");
-        idle.ShouldContain("OnStartupSec=1min");
+        // No time counted from the boot, the sign-in or the last start: such a timer fires at once each time it is written again.
+        timer.ShouldNotContain(l => l.StartsWith("OnStartupSec", StringComparison.Ordinal) || l.StartsWith("OnBootSec", StringComparison.Ordinal)
+            || l.StartsWith("OnUnitActiveSec", StringComparison.Ordinal));
+        SystemdUnits.Timer(plan with { NextUtc = null, Safety = false }).ShouldBeNull();
     }
 
     [Fact]

@@ -5,10 +5,10 @@ namespace TMPublisher.Background.Triggers;
 
 /// <summary>
 /// The Task Scheduler definition (task XML, schema 1.2) of a <see cref="TriggerPlan"/>, for the current user without administrator rights:
-/// runs only while the user is signed in (interactive token, least privilege), a one-time start at the next post's time (UTC), a start one
-/// minute after the user signs in, and, while a post is scheduled, a start every 30 minutes from 30 minutes after that time (a run that ended
-/// before it set the next start). Missed starts run as soon as possible (the computer was off or asleep), a second start while one runs is
-/// ignored, a run longer than an hour is stopped, the computer is woken for it only when the user asked, and battery power does not stop it.
+/// runs only while the user is signed in (interactive token, least privilege), a one-time start at the next post's time (UTC) and the safety
+/// starts 30, 60 and 120 minutes after it (a run that ended before it set the next start), and a start one minute after the user signs in.
+/// Missed starts run as soon as possible (the computer was off or asleep), a second start while one runs is ignored, a run longer than an hour
+/// is stopped, the computer is woken for it only when the user asked, and battery power does not stop it.
 /// </summary>
 public static class WindowsTaskXml
 {
@@ -27,12 +27,12 @@ public static class WindowsTaskXml
                 new XElement(Ns + "Enabled", "true")));
             if (plan.Safety)
             {
-                triggers.Add(new XElement(Ns + "TimeTrigger",
-                    new XElement(Ns + "Repetition",
-                        new XElement(Ns + "Interval", Duration(TriggerLimits.SafetyInterval)),
-                        new XElement(Ns + "StopAtDurationEnd", "false")),
-                    new XElement(Ns + "StartBoundary", Utc(next + TriggerLimits.SafetyInterval)),
-                    new XElement(Ns + "Enabled", "true")));
+                foreach (var after in TriggerLimits.SafetyStarts)
+                {
+                    triggers.Add(new XElement(Ns + "TimeTrigger",
+                        new XElement(Ns + "StartBoundary", Utc(next + after)),
+                        new XElement(Ns + "Enabled", "true")));
+                }
             }
         }
 

@@ -50,9 +50,9 @@ Gönderileriniz arasında hiçbir şey. TM Publisher tek bir program dosyasıdı
 - **Kapalıyken** sisteminizin zamanlayıcısı aynı dosyayı `--run-due` ile kısa bir süre için başlatır: veritabanını açar, saati
   gelen her gönderiyi gönderir, sonraki başlatmayı ayarlar ve kapanır. Windows'ta bu, kullanıcınızın bir **Görev Zamanlayıcı**
   görevidir (`TM Publisher <kod>`, Görev Zamanlayıcı Kitaplığı altında); Linux'ta bir **systemd kullanıcı zamanlayıcısı**
-  (`tm-publisher-<kod>.timer`, `~/.config/systemd/user` içinde). Yönetici izni gerekmez. Görev sıradaki gönderinin saatinde,
-  oturum açtıktan bir dakika sonra ve bir gönderinin saatinden sonra, bir çalıştırma sonrakini ayarlayana kadar 30 dakikada bir
-  başlar; bilgisayar kapalı ya da uykudayken kaçan başlatma, bilgisayar dönünce hemen yapılır. 5 dakikadan fazla gecikmiş gönderi
+  (`tm-publisher-<kod>.timer`, `~/.config/systemd/user` içinde). Yönetici izni gerekmez. TM Publisher'ı sıradaki gönderinin saatinde ve o çalıştırma
+  sonrakini ayarlamadan kapandıysa diye 30, 60 ve 120 dakika sonra başlatır (Windows'ta ayrıca oturum açtıktan bir dakika sonra);
+  bilgisayar kapalı ya da uykudayken kaçan başlatma, bilgisayar dönünce hemen yapılır. 5 dakikadan fazla gecikmiş gönderi
   kendiliğinden gitmez: **Kararınızı bekleyen** sayfasında sizi bekler.
 - Böyle bir çalıştırmanın **bildirimlerini** (yayınlandı, başarısız, kaçırıldı) sağ alt köşede, son bildirim kapanınca kapanan
   kısa ömürlü bir kopya gösterir.

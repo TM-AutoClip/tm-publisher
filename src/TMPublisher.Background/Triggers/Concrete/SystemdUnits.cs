@@ -4,9 +4,10 @@ namespace TMPublisher.Background.Triggers;
 
 /// <summary>
 /// The systemd user units of a <see cref="TriggerPlan"/>: a one-shot service that runs the program with <c>--run-due</c> (stopped after an hour),
-/// and its timer: at the next post's time (UTC; <c>Persistent=true</c> runs a start missed while the computer was off or asleep as soon as it
-/// is back), one minute after the user's service manager starts (sign-in), and, while a post is scheduled, 30 minutes after each run (a run
-/// that ended before it set the next start).
+/// and its timer, only with calendar times (UTC): the next post's time and the safety starts 30, 60 and 120 minutes after it. With
+/// <c>Persistent=true</c> a start missed while the computer was off, asleep or nobody was signed in runs as soon as the timer is back (at
+/// sign-in). No "after boot" or "after the last start" times: such a timer fires at once each time it is written again. Nothing scheduled:
+/// no timer (<see cref="Timer"/> is <c>null</c>).
 /// </summary>
 public static class SystemdUnits
 {
@@ -26,10 +27,15 @@ public static class SystemdUnits
             string.Empty);
     }
 
-    /// <summary>The timer unit text.</summary>
-    public static string Timer(TriggerPlan plan)
+    /// <summary>The timer unit text; <c>null</c> when nothing is scheduled (a timer needs at least one time).</summary>
+    public static string? Timer(TriggerPlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
+        if (plan.NextUtc is not { } next)
+        {
+            return null;
+        }
+
         var lines = new List<string>
         {
             "# Written by TM Publisher. Turn it off in TM Publisher: Settings, \"Send scheduled posts while TM Publisher is closed\".",
@@ -38,17 +44,13 @@ public static class SystemdUnits
             string.Empty,
             "[Timer]",
         };
-        if (plan.NextUtc is { } next)
+        lines.Add("OnCalendar=" + Calendar(next));
+        if (plan.Safety)
         {
-            lines.Add("OnCalendar=" + next.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + " UTC");
-            lines.Add("Persistent=true");
-            if (plan.Safety)
-            {
-                lines.Add("OnUnitActiveSec=" + Minutes(TriggerLimits.SafetyInterval));
-            }
+            lines.AddRange(TriggerLimits.SafetyStarts.Select(after => "OnCalendar=" + Calendar(next + after)));
         }
 
-        lines.Add("OnStartupSec=" + Minutes(TriggerLimits.SignInDelay));
+        lines.Add("Persistent=true");
         lines.Add("AccuracySec=1s");
         lines.Add("Unit=" + plan.Name + ".service");
         lines.Add(string.Empty);
@@ -69,6 +71,8 @@ public static class SystemdUnits
             ? escaped
             : "\"" + escaped.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
     }
+
+    private static string Calendar(DateTimeOffset time) => time.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + " UTC";
 
     private static string Minutes(TimeSpan span) => ((int)span.TotalMinutes).ToString(CultureInfo.InvariantCulture) + "min";
 }

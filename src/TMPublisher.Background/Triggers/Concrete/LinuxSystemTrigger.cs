@@ -23,7 +23,7 @@ public sealed class LinuxSystemTrigger(ICommandRunner runner, XdgAutostartEntry 
     private static string UnitFolder => Path.Combine(XdgAutostartEntry.ConfigFolder, "systemd", "user");
 
     /// <inheritdoc />
-    public string Describe(TriggerPlan plan) => SystemdUnits.Service(plan) + "\n" + SystemdUnits.Timer(plan);
+    public string Describe(TriggerPlan plan) => SystemdUnits.Service(plan) + "\n" + (SystemdUnits.Timer(plan) ?? "(no timer: nothing scheduled)");
 
     /// <inheritdoc />
     public async Task<TriggerResult> ApplyAsync(TriggerPlan plan, CancellationToken cancellationToken)
@@ -38,9 +38,26 @@ public sealed class LinuxSystemTrigger(ICommandRunner runner, XdgAutostartEntry 
 
         autostart.Remove(plan.Name);
         Directory.CreateDirectory(UnitFolder);
+        var timerFile = Path.Combine(UnitFolder, plan.Name + ".timer");
         await File.WriteAllTextAsync(Path.Combine(UnitFolder, plan.Name + ".service"), SystemdUnits.Service(plan), cancellationToken).ConfigureAwait(false);
-        await File.WriteAllTextAsync(Path.Combine(UnitFolder, plan.Name + ".timer"), SystemdUnits.Timer(plan), cancellationToken).ConfigureAwait(false);
-        string[][] steps = [["daemon-reload"], ["enable", plan.Name + ".timer"], ["restart", plan.Name + ".timer"]];
+        string[][] steps;
+        if (SystemdUnits.Timer(plan) is { } timer)
+        {
+            await File.WriteAllTextAsync(timerFile, timer, cancellationToken).ConfigureAwait(false);
+            steps = [["daemon-reload"], ["enable", plan.Name + ".timer"], ["restart", plan.Name + ".timer"]];
+        }
+        else
+        {
+            // Nothing scheduled: no timer until a post is (the window writes it then).
+            if (File.Exists(timerFile))
+            {
+                await SystemctlAsync(["disable", "--now", plan.Name + ".timer"], cancellationToken).ConfigureAwait(false);
+                File.Delete(timerFile);
+            }
+
+            steps = [["daemon-reload"]];
+        }
+
         foreach (var step in steps)
         {
             if (await SystemctlAsync(step, cancellationToken).ConfigureAwait(false) is { } failure)
@@ -82,7 +99,7 @@ public sealed class LinuxSystemTrigger(ICommandRunner runner, XdgAutostartEntry 
 
     /// <inheritdoc />
     public Task<bool> ExistsAsync(string name, CancellationToken cancellationToken) =>
-        Task.FromResult(File.Exists(Path.Combine(UnitFolder, name + ".timer")) || XdgAutostartEntry.Exists(name));
+        Task.FromResult(File.Exists(Path.Combine(UnitFolder, name + ".service")) || XdgAutostartEntry.Exists(name));
 
     private async Task<bool> SystemdAvailableAsync(CancellationToken cancellationToken)
     {

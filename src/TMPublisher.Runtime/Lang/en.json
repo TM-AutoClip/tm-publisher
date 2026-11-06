@@ -369,7 +369,7 @@
   "sending.paused": "Paused: nothing is sent, here or while the window is closed, until you resume (posts more than 5 minutes late then wait for you).",
   "sending.waiting": "A run started by the system scheduler is still sending; this window takes over when it is done.",
   "trigger.on": "While closed: {0} \"{1}\" starts TM Publisher at {2}.",
-  "trigger.on_sign_in": "While closed: {0} \"{1}\" starts TM Publisher when you sign in (no post is scheduled now).",
+  "trigger.on_sign_in": "While closed: {0} \"{1}\" is set; no post is scheduled now.",
   "trigger.sign_in_only": "While closed: no systemd user session was found, so TM Publisher sends only when you sign in and while this window is open, not at a post's time.",
   "trigger.failed": "While closed: the system scheduler could not be set, so posts are sent only while this window is open. Reason: {0}",
   "trigger.off": "While closed: off. Posts are sent only while this window is open.",

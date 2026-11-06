@@ -48,9 +48,10 @@ Nothing, between your posts. TM Publisher is one program file (`TMPublisher.exe`
 - **While it is closed,** your system's scheduler starts the same file for a moment with `--run-due`: it opens the database,
   sends every post whose time has come, sets the next start and ends. On Windows that is a **Task Scheduler** task of your user
   (`TM Publisher <code>`, under the Task Scheduler Library); on Linux a **systemd user timer** (`tm-publisher-<code>.timer`, in
-  `~/.config/systemd/user`). No administrator rights. The task starts at the next post's time, one minute after you sign in, and
-  every 30 minutes after a post's time until a run has set the next one; a start missed while the computer was off or asleep runs
-  as soon as it is back. A post more than 5 minutes late is not sent on its own: it waits for you on **Waiting for you**.
+  `~/.config/systemd/user`). No administrator rights. It starts TM Publisher at the next post's time and, in case that run ended
+  before it set the next start, 30, 60 and 120 minutes after it (on Windows also one minute after you sign in); a start missed
+  while the computer was off or asleep runs as soon as it is back. A post more than 5 minutes late is not sent on its own: it
+  waits for you on **Waiting for you**.
 - **Notifications** of such a run (published, failed, missed) are shown in the bottom-right corner by a short-lived copy of the
   program that ends when the last one closes.
 - **Settings → Send scheduled posts while TM Publisher is closed** (on by default) writes or removes the task / timer. Settings →
