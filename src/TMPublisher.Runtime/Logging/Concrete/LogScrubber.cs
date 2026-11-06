@@ -6,8 +6,9 @@ namespace TMPublisher.Runtime.Logging;
 /// <summary>
 /// The last check before a log line reaches a file (and again before a file goes into a report zip). Code never logs personal data or secrets
 /// on purpose; this masks what slips through anyway: the user's home folder (it carries the user name) becomes <c>~</c>, e-mail addresses
-/// become <c>***@***</c>, and tokens (Bearer / Basic, secret query and JSON values, webhook and bot addresses, common API key shapes, JWTs)
-/// become <c>***</c>.
+/// become <c>***@***</c>, the user's own account servers this process has reached (<see cref="AccountHosts"/>: a Mastodon instance, a Bluesky
+/// server; a connection error names them) become <c>(account server)</c>, and tokens (Bearer / Basic, secret query and JSON values, webhook
+/// and bot addresses, common API key shapes, JWTs) become <c>***</c>.
 /// </summary>
 public static partial class LogScrubber
 {
@@ -35,6 +36,7 @@ public static partial class LogScrubber
         }
 
         result = Email().Replace(result, "***@***");
+        result = AccountHosts.Mask(result);
         result = Redactor.Redact(result);
         result = ApiKey().Replace(result, "***");
         result = Jwt().Replace(result, "***");

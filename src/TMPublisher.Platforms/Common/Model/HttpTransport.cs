@@ -26,7 +26,7 @@ public sealed record HttpTransport(Func<HttpMessageHandler> CreateHandler)
     public HttpClient CreateClient(TimeSpan timeout)
     {
         var handler = CreateHandler();
-        var client = new HttpClient(Logger is null ? handler : new HttpLogHandler(handler, Logger)) { Timeout = timeout };
+        var client = new HttpClient(Logger is null ? handler : new HttpLogHandler(handler, Logger, timeout)) { Timeout = timeout };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("TMPublisher/" + (typeof(HttpTransport).Assembly.GetName().Version?.ToString(3) ?? "0"));
         return client;
     }
