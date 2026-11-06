@@ -7,6 +7,8 @@
 # HarfBuzz) inside it. No native compiler is needed, so every target can be built here.
 param([string[]]$Rids = @('win-x64'), [string]$Out = 'artifacts/release', [string]$Work = 'artifacts/publish')
 $ErrorActionPreference = 'Stop'
+# 'pwsh -File' passes -Rids a,b,c as one string: split it, so both ways of calling work.
+$Rids = @($Rids | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $root = Split-Path $PSScriptRoot -Parent
 if (-not [IO.Path]::IsPathRooted($Out)) { $Out = Join-Path $root $Out }
 if (-not [IO.Path]::IsPathRooted($Work)) { $Work = Join-Path $root $Work }
