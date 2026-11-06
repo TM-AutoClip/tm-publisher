@@ -53,7 +53,12 @@ Nothing, between your posts. TM Publisher is one program file (`TMPublisher.exe`
   while the computer was off or asleep runs as soon as it is back. A post more than 5 minutes late is not sent on its own: it
   waits for you on **Waiting for you**.
 - **Notifications** of such a run (published, failed, missed) are shown in the bottom-right corner by a short-lived copy of the
-  program that ends when the last one closes.
+  program that ends when the last one closes (on Linux the timer's service leaves it running after the run ended).
+- **Closing the window while a post is being sent** does not cut the upload off: the program finishes it without a window (at most
+  an hour), then sets the next start and ends. Only when the computer shuts down or you sign out it waits just 15 seconds; a post
+  cut off then waits for you as stopped.
+- **Sleep:** with the window open, a post that falls due soon after the computer wakes up (or is woken by the task) is sent at its
+  time; the window looks at the clock every minute instead of trusting a timer that does not count the sleep.
 - **Settings → Send scheduled posts while TM Publisher is closed** (on by default) writes or removes the task / timer. Settings →
   **Sending** shows who sends now, the next post and when the system starts TM Publisher next. **Wake the computer from sleep to
   send a post** (Windows, off by default) lets the task wake the computer.
@@ -61,10 +66,14 @@ Nothing, between your posts. TM Publisher is one program file (`TMPublisher.exe`
   5 minutes before you resume wait for you.
 - Only one sender works per data folder: while the window is open a run ends at once, and two runs never overlap.
 - **Master password:** a run cannot ask for it, so with a master password (always the case on Linux without a keyring, for
-  example on a Raspberry Pi) nothing is sent while the app is closed. When a post is due, a notification asks you once to open
-  TM Publisher; after you unlock it, the window sends the post.
+  example on a Raspberry Pi) nothing is sent while the app is closed. At each scheduled post's time a notification asks you to open
+  TM Publisher (once per post, for the next 20 posts the window knew when it closed). Unlock it within 5 minutes of the post's
+  time and the window sends it; later it waits for you on **Waiting for you**.
+- **Errors:** a run that fails, also one that cannot open the database (the keyring did not answer), sets the next start after
+  1, 2, 4, 8, then 15 minutes, so a post whose run failed is tried again within its 5 minutes.
 - **Linux without a systemd user session:** TM Publisher writes an autostart entry instead (`~/.config/autostart/tm-publisher-<code>.desktop`)
-  that sends due posts when you sign in, and Settings says so; posts are then not sent at their time while the app is closed.
+  and Settings says so. Posts are then sent only while the window is open: a post whose time passes while the window is closed is
+  not sent and waits for you on **Waiting for you** (the entry only does the checks that are due when you sign in).
 
 ## Install on Windows
 
@@ -73,7 +82,7 @@ Windows 10 or 11, 64-bit.
 1. Open the [latest release](../../releases/latest) and download `TMPublisher-<version>-win-x64.zip`.
 2. Optional but recommended: check the file against the SHA-256 value on the release page. In PowerShell:
    ```powershell
-   Get-FileHash .\TMPublisher-0.1.3-win-x64.zip -Algorithm SHA256
+   Get-FileHash .\TMPublisher-0.1.5-win-x64.zip -Algorithm SHA256
    ```
 3. Unpack it where it can stay, for example to `%LOCALAPPDATA%\Programs`. You get a `TM Publisher` folder with one program,
    `TMPublisher.exe`, and its documents. The Task Scheduler task points to this exact file, so choose the place before the first
@@ -92,12 +101,12 @@ desktop). A desktop session (X11, or Wayland with XWayland) is required for the 
 1. Download `tm-publisher-<version>-linux-x64.tar.gz` (or `-linux-arm64`) from the [latest release](../../releases/latest).
 2. Optional: check the SHA-256 value:
    ```sh
-   sha256sum tm-publisher-0.1.3-linux-x64.tar.gz
+   sha256sum tm-publisher-0.1.5-linux-x64.tar.gz
    ```
 3. Unpack it where it can stay (the program is already marked executable):
    ```sh
    mkdir -p ~/.local/opt
-   tar -xzf tm-publisher-0.1.3-linux-x64.tar.gz -C ~/.local/opt
+   tar -xzf tm-publisher-0.1.5-linux-x64.tar.gz -C ~/.local/opt
    ```
 4. **Keyring (recommended).** To open the database automatically when you sign in, TM Publisher stores its key in your
    desktop keyring (GNOME Keyring, KWallet, KeePassXC...) with the `secret-tool` command:
@@ -113,10 +122,14 @@ desktop). A desktop session (X11, or Wayland with XWayland) is required for the 
 
 Notes:
 
-- **Sending while closed** uses a systemd user timer (see [What runs in the background](#what-runs-in-the-background)). It runs
-  while you are signed in; to have it run also when nobody is signed in, enable lingering once: `loginctl enable-linger $USER`.
+- **Sending while closed** uses a systemd user timer (see [What runs in the background](#what-runs-in-the-background)). It sends
+  while you are signed in: the run needs your keyring, which opens when you sign in. A start missed while you were signed out runs
+  when you sign in again (a post then more than 5 minutes late waits for you). Lingering (`loginctl enable-linger`) does not change
+  this, because the keyring stays locked while nobody is signed in.
 - The run shows its notifications only when it knows your desktop session (`DISPLAY` / `WAYLAND_DISPLAY` in the systemd user
-  environment, which most desktops set); otherwise they are only written to the log.
+  environment, which most desktops set); otherwise they are only written to the log. If they are missing (`systemctl --user
+  show-environment` does not list them), add `systemctl --user import-environment DISPLAY WAYLAND_DISPLAY` to your desktop's
+  autostart.
 
 ## First start
 
@@ -180,8 +193,10 @@ you at once whether it worked.
      `Get-ScheduledTask -TaskName 'TM Publisher *' | Unregister-ScheduledTask -Confirm:$false`
    - Linux:
      ```sh
-     systemctl --user disable --now 'tm-publisher-*.timer'
-     rm ~/.config/systemd/user/tm-publisher-*.timer ~/.config/systemd/user/tm-publisher-*.service
+     systemctl --user stop 'tm-publisher-*.timer' 'tm-publisher-*.service'
+     for f in ~/.config/systemd/user/tm-publisher-*.timer; do [ -e "$f" ] && systemctl --user disable "$(basename "$f")"; done
+     rm -f ~/.config/systemd/user/tm-publisher-*.timer ~/.config/systemd/user/tm-publisher-*.service
+     rm -f ~/.config/systemd/user/timers.target.wants/tm-publisher-*.timer
      rm -f ~/.config/autostart/tm-publisher-*.desktop ~/.config/autostart/tm-publisher.desktop
      systemctl --user daemon-reload
      ```

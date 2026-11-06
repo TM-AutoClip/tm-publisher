@@ -55,7 +55,12 @@ Gönderileriniz arasında hiçbir şey. TM Publisher tek bir program dosyasıdı
   bilgisayar kapalı ya da uykudayken kaçan başlatma, bilgisayar dönünce hemen yapılır. 5 dakikadan fazla gecikmiş gönderi
   kendiliğinden gitmez: **Kararınızı bekleyen** sayfasında sizi bekler.
 - Böyle bir çalıştırmanın **bildirimlerini** (yayınlandı, başarısız, kaçırıldı) sağ alt köşede, son bildirim kapanınca kapanan
-  kısa ömürlü bir kopya gösterir.
+  kısa ömürlü bir kopya gösterir (Linux'ta zamanlayıcının hizmeti onu çalıştırma bittikten sonra da çalışır bırakır).
+- **Bir gönderi giderken pencereyi kapatmak** yüklemeyi yarıda kesmez: program onu penceresiz bitirir (en çok bir saat), sonra
+  sonraki başlatmayı ayarlar ve kapanır. Yalnız bilgisayar kapanırken ya da oturumu kapatırken 15 saniye bekler; o zaman yarıda
+  kalan gönderi sizi durdurulmuş olarak bekler.
+- **Uyku:** pencere açıkken, bilgisayar uyandıktan kısa süre sonra (ya da görev onu uyandırınca) saati gelen gönderi saatinde
+  gider; pencere uykuyu saymayan bir zamanlayıcıya güvenmek yerine saate her dakika bakar.
 - **Ayarlar → TM Publisher kapalıyken de zamanlanmış gönderileri gönder** (varsayılan açık) görevi / zamanlayıcıyı yazar ya da
   siler. Ayarlar → **Gönderme** şu an kimin gönderdiğini, sıradaki gönderiyi ve sistemin TM Publisher'ı ne zaman başlatacağını
   gösterir. **Bir gönderiyi göndermek için bilgisayarı uykudan uyandır** (Windows, varsayılan kapalı) görevin bilgisayarı
@@ -65,11 +70,15 @@ Gönderileriniz arasında hiçbir şey. TM Publisher tek bir program dosyasıdı
 - Bir veri klasöründe aynı anda yalnız bir gönderici çalışır: pencere açıkken çalıştırma hemen kapanır, iki çalıştırma asla üst üste
   gelmez.
 - **Ana parola:** çalıştırma parolayı soramaz; bu yüzden ana parolayla (Linux'ta anahtarlık yoksa, örneğin Raspberry Pi'de, her
-  zaman böyledir) program kapalıyken hiçbir şey gönderilmez. Bir gönderinin saati gelince bir bildirim TM Publisher'ı açmanızı bir
-  kez ister; kilidi açtığınızda gönderiyi pencere gönderir.
+  zaman böyledir) program kapalıyken hiçbir şey gönderilmez. Her zamanlanmış gönderinin saatinde bir bildirim TM Publisher'ı
+  açmanızı ister (gönderi başına bir kez; pencerenin kapanırken bildiği sonraki 20 gönderi için). Gönderinin saatinden sonraki
+  5 dakika içinde kilidi açarsanız pencere onu gönderir; daha sonra açarsanız **Kararınızı bekleyen** sayfasında sizi bekler.
+- **Hatalar:** başarısız olan çalıştırma, veritabanını açamayan da (anahtarlık yanıt vermedi), sonraki başlatmayı 1, 2, 4, 8,
+  sonra 15 dakika sonraya ayarlar; çalıştırması başarısız olan gönderi 5 dakikası içinde yeniden denenir.
 - **systemd kullanıcı oturumu olmayan Linux:** TM Publisher onun yerine bir otomatik başlatma girdisi yazar
-  (`~/.config/autostart/tm-publisher-<kod>.desktop`); saati gelen gönderiler oturum açınca gönderilir ve Ayarlar bunu söyler. Program
-  kapalıyken gönderiler o zaman saatinde gitmez.
+  (`~/.config/autostart/tm-publisher-<kod>.desktop`) ve Ayarlar bunu söyler. Gönderiler o zaman yalnız pencere açıkken gider:
+  saati pencere kapalıyken geçen gönderi gönderilmez, **Kararınızı bekleyen** sayfasında sizi bekler (girdi oturum açınca yalnız
+  saati gelmiş denetimleri yapar).
 
 ## Windows'a kurulum
 
@@ -78,7 +87,7 @@ Windows 10 ya da 11, 64 bit.
 1. [Son sürüm](../../releases/latest) sayfasını açın ve `TMPublisher-<sürüm>-win-x64.zip` dosyasını indirin.
 2. İsteğe bağlı ama önerilir: dosyayı sürüm sayfasındaki SHA-256 değeriyle karşılaştırın. PowerShell'de:
    ```powershell
-   Get-FileHash .\TMPublisher-0.1.3-win-x64.zip -Algorithm SHA256
+   Get-FileHash .\TMPublisher-0.1.5-win-x64.zip -Algorithm SHA256
    ```
 3. Kalacağı bir yere açın, örneğin `%LOCALAPPDATA%\Programs` içine. İçinden tek bir program (`TMPublisher.exe`) ve belgeleri
    bulunan bir `TM Publisher` klasörü çıkar. Görev Zamanlayıcı görevi tam bu dosyaya bakar; yeri ilk açılıştan önce seçin (sonra
@@ -98,12 +107,12 @@ kullanın. Pencere ve bildirimler için bir masaüstü oturumu (X11 ya da XWayla
    indirin.
 2. İsteğe bağlı: SHA-256 değerini denetleyin:
    ```sh
-   sha256sum tm-publisher-0.1.3-linux-x64.tar.gz
+   sha256sum tm-publisher-0.1.5-linux-x64.tar.gz
    ```
 3. Kalacağı bir yere açın (program zaten çalıştırılabilir işaretli):
    ```sh
    mkdir -p ~/.local/opt
-   tar -xzf tm-publisher-0.1.3-linux-x64.tar.gz -C ~/.local/opt
+   tar -xzf tm-publisher-0.1.5-linux-x64.tar.gz -C ~/.local/opt
    ```
 4. **Anahtarlık (önerilir).** Oturum açınca veritabanının kendiliğinden açılması için TM Publisher anahtarını masaüstü
    anahtarlığınızda (GNOME Keyring, KWallet, KeePassXC...) `secret-tool` komutuyla saklar:
@@ -120,9 +129,12 @@ kullanın. Pencere ve bildirimler için bir masaüstü oturumu (X11 ya da XWayla
 Notlar:
 
 - **Kapalıyken gönderme** bir systemd kullanıcı zamanlayıcısıyla çalışır (bkz. [Arka planda ne çalışır](#arka-planda-ne-çalışır)).
-  Siz oturum açmışken çalışır; kimse oturum açmamışken de çalışsın istiyorsanız bir kez `loginctl enable-linger $USER` deyin.
+  Siz oturum açmışken gönderir: çalıştırma anahtarlığınıza ihtiyaç duyar, o da oturum açınca açılır. Oturum kapalıyken kaçan
+  başlatma, yeniden oturum açınca yapılır (o zaman 5 dakikadan fazla gecikmiş gönderi sizi bekler). `loginctl enable-linger` bunu
+  değiştirmez, çünkü kimse oturum açmamışken anahtarlık kilitli kalır.
 - Çalıştırma bildirimlerini yalnız masaüstü oturumunuzu biliyorsa gösterir (systemd kullanıcı ortamında `DISPLAY` /
-  `WAYLAND_DISPLAY`; çoğu masaüstü bunu ayarlar); yoksa yalnız günlüğe yazılır.
+  `WAYLAND_DISPLAY`; çoğu masaüstü bunu ayarlar); yoksa yalnız günlüğe yazılır. Eksiklerse (`systemctl --user show-environment`
+  onları listelemiyorsa) masaüstünüzün otomatik başlatmasına `systemctl --user import-environment DISPLAY WAYLAND_DISPLAY` ekleyin.
 
 ## Programı ilk kez açınca
 
@@ -187,8 +199,10 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
      PowerShell'de: `Get-ScheduledTask -TaskName 'TM Publisher *' | Unregister-ScheduledTask -Confirm:$false`
    - Linux:
      ```sh
-     systemctl --user disable --now 'tm-publisher-*.timer'
-     rm ~/.config/systemd/user/tm-publisher-*.timer ~/.config/systemd/user/tm-publisher-*.service
+     systemctl --user stop 'tm-publisher-*.timer' 'tm-publisher-*.service'
+     for f in ~/.config/systemd/user/tm-publisher-*.timer; do [ -e "$f" ] && systemctl --user disable "$(basename "$f")"; done
+     rm -f ~/.config/systemd/user/tm-publisher-*.timer ~/.config/systemd/user/tm-publisher-*.service
+     rm -f ~/.config/systemd/user/timers.target.wants/tm-publisher-*.timer
      rm -f ~/.config/autostart/tm-publisher-*.desktop ~/.config/autostart/tm-publisher.desktop
      systemctl --user daemon-reload
      ```
