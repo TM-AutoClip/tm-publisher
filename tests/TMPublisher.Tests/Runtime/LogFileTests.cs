@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Shouldly;
@@ -88,6 +89,78 @@ public sealed class LogFileTests
         full.Split("daily limit").Length.ShouldBe(2);
         full.ShouldNotContain("line 99 ");
         File.ReadAllLines(Path.Combine(logs, "scheduler-2026-11-07.log"))[^1].ShouldBe("next day");
+    }
+
+    [Fact]
+    public void AFileThatCannotBeOpenedIsTriedAgainAndTheLostLinesAreCounted()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return; // The failure is made with a file opened without sharing, which Windows enforces for every writer.
+        }
+
+        using var paths = new TempPaths();
+        var logs = Logs(paths);
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 6, 12, 0, 0, TimeSpan.Zero));
+        var name = Path.Combine(logs, "app-2026-11-06.log");
+        var held = new FileStream(name, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        using (var file = new DailyLogFile(logs, LogKinds.App, "TM Publisher", clock))
+        {
+            file.Write("lost one");
+            clock.Advance(TimeSpan.FromSeconds(30));
+            file.Write("lost two");
+            held.Dispose();
+            clock.Advance(TimeSpan.FromSeconds(31));
+            file.Write("written");
+        }
+
+        var lines = File.ReadAllLines(name);
+        lines[0].ShouldContain("=== TM Publisher ");
+        lines[1].ShouldContain("[Warning] TMPublisher.Logging: The log file could not be opened for a while; 2 line(s) were not written");
+        lines[^1].ShouldBe("written");
+    }
+
+    [Fact]
+    public void TwoWritersOfOneKindDoNotOverwriteEachOthersLines()
+    {
+        using var paths = new TempPaths();
+        var logs = Logs(paths);
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 6, 12, 0, 0, TimeSpan.Zero));
+        var a = new string('a', 60);
+        var b = new string('b', 60);
+        using (var first = new DailyLogFile(logs, LogKinds.Notify, "TM Publisher", clock))
+        using (var second = new DailyLogFile(logs, LogKinds.Notify, "TM Publisher", clock))
+        {
+            Parallel.Invoke(
+                () =>
+                {
+                    for (var i = 0; i < 400; i++)
+                    {
+                        first.Write("first " + i.ToString("000", CultureInfo.InvariantCulture) + " " + a);
+                    }
+                },
+                () =>
+                {
+                    for (var i = 0; i < 400; i++)
+                    {
+                        second.Write("second " + i.ToString("000", CultureInfo.InvariantCulture) + " " + b);
+                    }
+                });
+        }
+
+        var lines = File.ReadAllLines(Path.Combine(logs, "notify-2026-11-06.log"))
+            .Where(l => !l.Contains("=== TM Publisher ", StringComparison.Ordinal)).ToList();
+        lines.Count.ShouldBe(800);
+        lines.Count(l => l.StartsWith("first ", StringComparison.Ordinal) && l.EndsWith(a, StringComparison.Ordinal) && l.Length == 70).ShouldBe(400);
+        lines.Count(l => l.StartsWith("second ", StringComparison.Ordinal) && l.EndsWith(b, StringComparison.Ordinal) && l.Length == 71).ShouldBe(400);
+    }
+
+    [Fact]
+    public void TheScrubberMasksTheUsersOwnServerNamesOnceRegistered()
+    {
+        TMPublisher.Core.Security.AccountHosts.Add("social.own-server-0815.example");
+        LogScrubber.Scrub("No such host is known. (social.own-server-0815.example:443) for @me@social.own-server-0815.example", null)
+            .ShouldBe("No such host is known. ((account server):443) for @***@***");
     }
 
     [Theory]
