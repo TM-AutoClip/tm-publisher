@@ -31,7 +31,8 @@ foreach ($rid in $Rids) {
         -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:DebugSymbols=false `
         -m:1 -nodeReuse:false -o $window
     if ($LASTEXITCODE -ne 0) { throw "window publish failed for $rid" }
-    $kind = if ($rid -like 'win-*') { @() } else { @('-p:SchedulerBuild=jit') }
+    # @(...) around the if: a one-element result would be a plain string, and splatting a string passes it letter by letter.
+    $kind = @(if ($rid -notlike 'win-*') { '-p:SchedulerBuild=jit' })
     & dotnet publish (Join-Path $root 'src/TMPublisher.Background/TMPublisher.Background.csproj') -c Release -r $rid `
         -p:DebugType=none -p:DebugSymbols=false @kind -m:1 -nodeReuse:false -o $scheduler
     if ($LASTEXITCODE -ne 0) { throw "scheduler publish failed for $rid" }
