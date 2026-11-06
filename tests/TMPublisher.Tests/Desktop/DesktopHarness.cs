@@ -1,7 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using TMPublisher.Background.Legacy;
+using TMPublisher.Background.Triggers;
 using TMPublisher.Desktop.Composition;
-using TMPublisher.Desktop.Scheduler;
 using TMPublisher.Runtime.Paths;
+using TMPublisher.Tests.Background;
 using TMPublisher.Storage.Crypto;
 
 namespace TMPublisher.Tests.Desktop;
@@ -21,15 +24,17 @@ internal sealed class DesktopHarness : IDisposable
             // No real network in tests: every request gets the fake handler's "no route" answer.
             s.AddSingleton(new TMPublisher.Tests.Platforms.FakeHttp().Transport);
 
-            // No background scheduler process is started from a test.
-            s.AddSingleton<ISchedulerLauncher>(Launcher);
+            // No test writes to the real system scheduler or looks at the real autostart entries.
+            s.RemoveAll<ISystemTrigger>();
+            s.AddSingleton<ISystemTrigger>(Trigger);
+            s.RemoveAll<ILegacyAutostart>();
             overrides?.Invoke(s);
         });
     }
 
     public AppPaths Paths { get; }
 
-    public FakeSchedulerLauncher Launcher { get; } = new();
+    public FakeSystemTrigger Trigger { get; } = new();
 
     public ServiceProvider Services { get; }
 

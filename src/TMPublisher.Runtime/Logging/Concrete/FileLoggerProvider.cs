@@ -5,7 +5,7 @@ namespace TMPublisher.Runtime.Logging;
 
 /// <summary>
 /// Daily log files in the data folder, one file per process kind and day (<c>logs/app-yyyy-MM-dd.log</c> for the window,
-/// <c>logs/scheduler-yyyy-MM-dd.log</c> for the background scheduler, <c>logs/notify-yyyy-MM-dd.log</c> for the notification process),
+/// <c>logs/run-yyyy-MM-dd.log</c> for the runs the system scheduler starts, <c>logs/notify-yyyy-MM-dd.log</c> for the notification process),
 /// Information and above, the last <see cref="LogLimits.KeepDays"/> days kept (<see cref="DailyLogFile"/>). Every line goes through
 /// <see cref="LogScrubber"/>: secrets and personal data never reach the file even when a platform echoes them in an error body.
 /// </summary>
@@ -35,6 +35,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
     private static string Program(string kind) => kind switch
     {
         LogKinds.App => "TM Publisher",
+        LogKinds.Run => "TM Publisher run",
         LogKinds.Scheduler => "TM Publisher scheduler",
         LogKinds.Notify => "TM Publisher notifications",
         _ => "TM Publisher " + kind,

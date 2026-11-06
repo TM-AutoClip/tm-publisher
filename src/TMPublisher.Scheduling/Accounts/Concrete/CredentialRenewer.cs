@@ -8,7 +8,7 @@ namespace TMPublisher.Scheduling.Accounts;
 /// <summary>
 /// Fresh credentials for an account: refreshes with the user's own app when they are about to expire, and once more when the platform
 /// rejects the token; every refresh is stored at once (a rotated refresh token must not be lost). A rejected refresh marks the account
-/// "connect again". Refreshes of one account run one at a time, also across the background scheduler and the window
+/// "connect again". Refreshes of one account run one at a time, also across the window and a run
 /// (<see cref="IRefreshGate"/>), and each re-reads the stored values first: with a rotating refresh token (X) a second refresh with the old
 /// token would be refused and wrongly mark a working account.
 /// </summary>

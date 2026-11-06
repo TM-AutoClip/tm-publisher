@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Desktop.Composition;
 using TMPublisher.Desktop.Localization;
-using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
 using TMPublisher.Desktop.ViewModels;
 using TMPublisher.Desktop.Views;
@@ -17,12 +16,12 @@ using TMPublisher.Storage.Keys;
 namespace TMPublisher.Desktop.Startup;
 
 /// <summary>
-/// Startup flow of the window program: first run (language → new start or restore) · unlock (automatic keyring, or master password) · main
-/// window + startup tasks (the background scheduler is started if needed and gets the key of a master-password database). Closing the main
-/// window ends the window program; the background scheduler keeps sending posts.
+/// Startup flow of the window: first run (language → new start or restore) · unlock (automatic keyring, or master password) · main window +
+/// startup tasks (the window becomes the sender of the data folder). Closing the main window ends the program; the system scheduler starts it
+/// for a moment when a post is due.
 /// </summary>
 public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer text, UiPreferencesFile preferences, AppSession session,
-    WindowHost windows, MainWindowHost main, IAutostart autostart, IOldVersionCheck oldVersion, ILogger<AppStartup> logger)
+    WindowHost windows, MainWindowHost main, IOldVersionCheck oldVersion, ILogger<AppStartup> logger)
 {
     private IClassicDesktopStyleApplicationLifetime? _desktop;
     private ShellViewModel? _shell;
@@ -76,7 +75,7 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         }
     }
 
-    /// <summary>Ends the window program (the background scheduler keeps running).</summary>
+    /// <summary>Ends the program (the system scheduler starts it again when a post is due, if that is on).</summary>
     public void Quit()
     {
         main.BeginQuit();
@@ -178,11 +177,10 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
         main.Closed += (_, _) => Quit();
         main.Show();
         await shell.StartAsync().ConfigureAwait(true);
-        RepairAutostart(shell);
         if (oldVersion.OldVersionRuns())
         {
-            // The scheduler is not started next to it (SchedulerSupervisor checks again); a running one claims nothing while it runs.
-            logger.LogError("An older TM Publisher (0.1.0-0.1.2) runs on the same data; the background scheduler does not start next to it");
+            // Nothing is claimed while it runs (PostScheduler checks before every claim).
+            logger.LogError("An older TM Publisher (0.1.0-0.1.2) runs on the same data; no post is sent here while it runs");
             shell.Status = text["scheduler.old_version"];
         }
 
@@ -197,19 +195,6 @@ public sealed class AppStartup(IServiceProvider services, Vault vault, Localizer
                 logger.LogError(ex, "Startup task {Task} failed", task.GetType().Name);
                 shell.Status = text.Format("startup.task_failed", ex.Message);
             }
-        }
-    }
-
-    private void RepairAutostart(ShellViewModel shell)
-    {
-        try
-        {
-            autostart.Repair();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
-        {
-            logger.LogError(ex, "The autostart entry could not be moved to the background scheduler");
-            shell.Status = text.Format("startup.task_failed", ex.Message);
         }
     }
 

@@ -10,15 +10,13 @@ namespace TMPublisher.Runtime.Instance;
 /// Finds a running TM Publisher 0.1.0–0.1.2 of the same data folder. Those versions hold the named mutex <c>TMPublisher-&lt;hash&gt;</c>, owned by
 /// their main thread for the life of the process; a second start of them that finds the name already there only signals the first and ends.
 /// <para>
-/// Windows: the mutex counts only while somebody owns it. The new background scheduler keeps the name open without owning it
-/// (<see cref="HoldName"/>), so an old version started later finds it and ends at once, and that handle is not mistaken for an old version.
+/// Windows: the mutex counts only while somebody owns it (an old version owns it for its whole life).
 /// </para>
 /// <para>
 /// Linux: .NET keeps a named mutex in a file under <c>.dotnet/shm/session&lt;id&gt;/</c> (below <c>$XDG_RUNTIME_DIR</c>, seen on a Raspberry
 /// Pi as <c>/run/user/&lt;uid&gt;</c>, or <c>$TMPDIR</c> or <c>/tmp</c>; all of them are looked at, since a start from a terminal may not
 /// have the same variables as one from the desktop), and every process that has it open holds a shared lock on that file. The mutex itself is visible only in the same login session,
-/// and not at all to the natively compiled scheduler (its named mutexes live inside the process), so the files of every session are looked at
-/// instead: a file that cannot be locked exclusively is open in a running 0.1.x process. Nothing in 0.1.3 opens that name on Linux.
+/// so the files of every session are looked at instead: a file that cannot be locked exclusively is open in a running 0.1.x process. Nothing since 0.1.3 opens that name on Linux.
 /// </para>
 /// </summary>
 public sealed class OldVersionGuard : IOldVersionCheck
@@ -52,13 +50,6 @@ public sealed class OldVersionGuard : IOldVersionCheck
 
     /// <inheritdoc />
     public bool OldVersionRuns() => OperatingSystem.IsWindows() ? MutexOwned() : AnyFileHeld();
-
-    /// <summary>
-    /// Windows: keeps the old single-instance name open (not owned) until the result is disposed, so a 0.1.0–0.1.2 started later is a "second
-    /// start" and ends without sending anything. <c>null</c> on Linux, where the name would not reach every session and would make the file check
-    /// find this process.
-    /// </summary>
-    public IDisposable? HoldName() => OperatingSystem.IsWindows() ? new Mutex(false, Name, out _) : null;
 
     /// <summary>Whether another process holds <paramref name="file"/> open with a lock (a shared lock on Linux, a share mode on Windows).</summary>
     internal bool IsHeld(string file)
@@ -174,7 +165,7 @@ public sealed class OldVersionGuard : IOldVersionCheck
 
         using (mutex)
         {
-            // Tried a few times: another 0.1.3 process may own it for a moment while it looks; an old version owns it for its whole life.
+            // Tried a few times: another process of this version may own it for a moment while it looks; an old version owns it for its whole life.
             for (var i = 0; i < OwnerTries; i++)
             {
                 if (i > 0)

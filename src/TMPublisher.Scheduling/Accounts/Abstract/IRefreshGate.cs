@@ -1,7 +1,7 @@
 namespace TMPublisher.Scheduling.Accounts;
 
 /// <summary>
-/// One token refresh per account at a time, across both processes (the background scheduler and the window): with a rotating refresh token
+/// One token refresh per account at a time, across processes (the window and a run the system scheduler started): with a rotating refresh token
 /// (X) a second refresh with the old token is refused and would wrongly mark a working account "connect again".
 /// </summary>
 public interface IRefreshGate

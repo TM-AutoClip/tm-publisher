@@ -5,7 +5,7 @@ using TMPublisher.Runtime.Localization;
 namespace TMPublisher.Desktop.Localization;
 
 /// <summary>
-/// English and Turkish texts (<see cref="LanguageFiles"/>, shared with the background scheduler). A missing Turkish key falls back to English, a
+/// English and Turkish texts (<see cref="LanguageFiles"/>, shared with the runs the system scheduler starts). A missing Turkish key falls back to English, a
 /// missing English key shows the key (the parity test keeps both files complete). The language is chosen at start; changing it applies
 /// after a restart.
 /// </summary>

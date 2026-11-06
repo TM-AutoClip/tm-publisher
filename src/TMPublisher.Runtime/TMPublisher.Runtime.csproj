@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    What both processes need: the data folder, the log files, the language files, the instance lock and the local channel between the
-    window and the background scheduler. No UI library. Depends on Core only. Safe for trimming and native (AOT) compilation.
+    What every mode of the program needs (window, the run the system scheduler starts, notifications): the data folder, the log files, the
+    language files, the instance locks, and the "quit" request to a 0.1.3-0.1.4 scheduler after an update. No UI library. Depends on Core only.
+    Safe for trimming.
   -->
   <PropertyGroup>
     <IsAotCompatible>true</IsAotCompatible>

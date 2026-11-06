@@ -3,14 +3,17 @@ namespace TMPublisher.Runtime.Instance;
 /// <summary>
 /// A lock file in the data folder held open without sharing for the life of the process (Windows refuses a second open; .NET takes an
 /// exclusive flock on Linux). The system releases it when the process ends, also when it is killed. A file is used, not a named mutex: on
-/// Linux .NET scopes a named mutex to the login session, so a start from a terminal and one from the menu (or autostart) would both count as
-/// the first. <c>scheduler-instance.lock</c> makes sure only one background scheduler sends the posts of a data folder;
-/// <c>window-instance.lock</c> keeps one window.
+/// Linux .NET scopes a named mutex to the login session, so a start from a terminal and one from the menu (or the system scheduler) would both
+/// count as the first. <see cref="Sender"/> makes sure only one process sends the posts of a data folder (the open window, or one run started by
+/// the system scheduler); <see cref="Window"/> keeps one window.
 /// </summary>
 public sealed class InstanceLock : IDisposable
 {
-    /// <summary>The background scheduler's lock file.</summary>
-    public const string Scheduler = "scheduler-instance.lock";
+    /// <summary>
+    /// The sender's lock file. Its name is the one the always-running scheduler of 0.1.3–0.1.4 held, so that scheduler and this version never
+    /// send next to each other.
+    /// </summary>
+    public const string Sender = "scheduler-instance.lock";
 
     /// <summary>The window's lock file.</summary>
     public const string Window = "window-instance.lock";

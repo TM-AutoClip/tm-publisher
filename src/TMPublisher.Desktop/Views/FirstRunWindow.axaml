@@ -73,7 +73,7 @@
         <TextBox Classes="secret" Text="{Binding MasterPasswordRepeat}" PlaceholderText="{l:Tr password.repeat}" />
         <ProgressBar Minimum="0" Maximum="4" Value="{Binding PasswordStrength}" Height="4" />
       </StackPanel>
-      <CheckBox IsChecked="{Binding StartWithSystem}" Content="{l:Tr settings.autostart}" />
+      <CheckBox IsChecked="{Binding StartWithSystem}" Content="{l:Tr settings.send_closed}" />
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="{l:Tr common.back}" Command="{Binding BackCommand}" />
         <Button Classes="accent" Content="{l:Tr firstrun.create}" Command="{Binding CreateCommand}" IsVisible="{Binding IsNewStep}" IsEnabled="{Binding !Busy}" />

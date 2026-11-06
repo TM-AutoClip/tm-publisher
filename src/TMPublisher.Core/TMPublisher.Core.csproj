@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Domain model, rules and every abstraction. Depends on nothing of ours. -->
   <PropertyGroup>
-    <!-- Also compiled into the native background scheduler: trimming / AOT warnings are errors here too. -->
+    <!-- The program is published trimmed: trimming (and AOT) warnings are errors here too. -->
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>

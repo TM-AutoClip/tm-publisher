@@ -3,36 +3,23 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Accounts;
 using TMPublisher.Core.Platforms;
+using TMPublisher.Background.Composition;
 using TMPublisher.Desktop.Accounts;
 using TMPublisher.Platforms.Bluesky;
-using TMPublisher.Platforms.Common;
-using TMPublisher.Platforms.Discord;
-using TMPublisher.Platforms.LinkedIn;
 using TMPublisher.Platforms.Mastodon;
-using TMPublisher.Platforms.Pinterest;
-using TMPublisher.Platforms.Meta;
-using TMPublisher.Platforms.Telegram;
-using TMPublisher.Platforms.Threads;
-using TMPublisher.Platforms.TikTok;
 using TMPublisher.Platforms.X;
 using TMPublisher.Platforms.YouTube;
-using TMPublisher.Platforms.Connections;
 using TMPublisher.Scheduling;
-using TMPublisher.Scheduling.Accounts;
-using TMPublisher.Core.Instance;
 using TMPublisher.Core.Localization;
 using TMPublisher.Core.Notifications;
-using TMPublisher.Core.Paths;
 using TMPublisher.Core.Posts;
-using TMPublisher.Core.Quotas;
 using TMPublisher.Core.Settings;
 using TMPublisher.Core.Stats;
 using TMPublisher.Desktop.Localization;
 using TMPublisher.Desktop.Notifications;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
-using TMPublisher.Desktop.Scheduler;
-using TMPublisher.Runtime.Instance;
+using TMPublisher.Desktop.Sending;
 using TMPublisher.Runtime.Logging;
 using TMPublisher.Runtime.Paths;
 using TMPublisher.Desktop.Startup;
@@ -40,13 +27,12 @@ using TMPublisher.Desktop.ViewModels;
 using TMPublisher.Desktop.Views;
 using TMPublisher.Storage.Backup;
 using TMPublisher.Storage.Crypto;
-using TMPublisher.Storage.Database;
 using TMPublisher.Storage.Keys;
 using TMPublisher.Storage.Stores;
 
 namespace TMPublisher.Desktop.Composition;
 
-/// <summary>The composition root: every service of the app.</summary>
+/// <summary>The composition root of the window: the sending services (<see cref="SendingServices"/>, the same as a run's) and the window's own.</summary>
 public static class DesktopServices
 {
     private static readonly IOsModule[] OsModules = [new WindowsOsModule(), new LinuxOsModule()];
@@ -64,35 +50,21 @@ public static class DesktopServices
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information));
         services.AddSingleton<ILoggerProvider>(_ => new FileLoggerProvider(paths.LogDirectory, LogKinds.App));
         services.AddSingleton(new DrawingMode(Gpu: false));
-        services.AddSingleton(TimeProvider.System);
-        services.AddSingleton(paths);
-
-        // An old TM Publisher (0.1.0-0.1.2) on the same data: the scheduler neither starts nor claims next to it.
-        services.AddSingleton<OldVersionGuard>();
-        services.AddSingleton<IOldVersionCheck>(s => s.GetRequiredService<OldVersionGuard>());
-        services.AddSingleton<IAppPaths>(paths);
+        SendingServices.Add(services, paths);
         services.AddSingleton<UiPreferencesFile>();
         services.AddSingleton<Localizer>();
         services.AddSingleton<ILocalizer>(s => s.GetRequiredService<Localizer>());
         services.AddSingleton(CurrentOs);
 
-        // Storage: encrypted database, key protectors, backup.
-        services.AddSingleton<DatabaseKey>();
+        // Storage of the window: the master password (the window can ask for it), backup, groups, tag sets.
         services.AddSingleton(KdfParameters.Default);
         services.AddSingleton<UiMasterPassword>();
         services.AddSingleton<IMasterPasswordSource>(s => s.GetRequiredService<UiMasterPassword>());
         services.AddSingleton<IKeyProtector, PasswordKeyProtector>();
         CurrentOs.Register(services);
-        services.AddSingleton<Vault>();
         services.AddSingleton<BackupService>();
-        services.AddSingleton<IConnectionFactory, ConnectionFactory>();
-        services.AddSingleton<IAccountStore, AccountStore>();
-        services.AddSingleton<ICredentialStore, CredentialStore>();
         services.AddSingleton<IGroupStore, GroupStore>();
-        services.AddSingleton<IPostStore, PostStore>();
-        services.AddSingleton<ISettingsStore, SettingsStore>();
         services.AddSingleton<ITagSetStore, TagSetStore>();
-        services.AddSingleton<IPublishLog, PublishLogStore>();
 
         // Desktop.
         services.AddSingleton<AppSession>();
@@ -132,43 +104,24 @@ public static class DesktopServices
             .Register<GroupsViewModel, GroupsView>()
             .Register<SettingsViewModel, SettingsView>());
 
-        // Platforms (one class each) and the services around them.
-        services.AddSingleton(s => HttpTransport.Network.WithLog(s.GetRequiredService<ILoggerFactory>().CreateLogger("TMPublisher.Http")));
-        services.AddSingleton<ILoopbackListener, LoopbackListener>();
-        services.AddSingleton<IPlatformDirectory, PlatformDirectory>();
-        services.AddSingleton<IRefreshGate, FileRefreshGate>();
-        services.AddSingleton<CredentialRenewer>();
-        services.AddSingleton<QuotaChecker>();
+        // Statistics (only the window reads them).
         services.AddSingleton<StatsService>();
         services.AddSingleton<IStatsReader, YouTubeStatsReader>();
         services.AddSingleton<IStatsReader, XStatsReader>();
         services.AddSingleton<IStatsReader, BlueskyStatsReader>();
         services.AddSingleton<IStatsReader, MastodonStatsReader>();
 
-        // The background scheduler (its own process) sends; the window stores decisions and talks to it.
+        // While it is open the window sends; it stores the user's decisions and sets the system scheduler's next start for when it is closed.
         services.AddSingleton<PostDecisions>();
-        services.AddSingleton<ISchedulerLauncher, ProcessSchedulerLauncher>();
-        services.AddSingleton<SchedulerSupervisor>();
-        services.AddSingleton<IStartupTask>(s => s.GetRequiredService<SchedulerSupervisor>());
-        services.AddSingleton<IPostScheduler, SchedulerBridge>();
-        services.AddSingleton<IPlatform, YouTubePlatform>();
-        services.AddSingleton<IPlatform, XPlatform>();
-        services.AddSingleton<IPlatform, TikTokPlatform>();
-        services.AddSingleton<IPlatform, InstagramPlatform>();
-        services.AddSingleton<IPlatform, FacebookPlatform>();
-        services.AddSingleton<IPlatform, ThreadsPlatform>();
-        services.AddSingleton<IPlatform, TelegramPlatform>();
-        services.AddSingleton<IPlatform, DiscordPlatform>();
-        services.AddSingleton<IPlatform, BlueskyPlatform>();
-        services.AddSingleton<IPlatform, MastodonPlatform>();
-        services.AddSingleton<IPlatform, PinterestPlatform>();
-        services.AddSingleton<IPlatform, LinkedInPlatform>();
+        services.AddSingleton<WindowSender>();
+        services.AddSingleton<IStartupTask>(s => s.GetRequiredService<WindowSender>());
+        services.AddSingleton<IPostScheduler, WindowScheduler>();
         overrides?.Invoke(services);
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }
 
     /// <summary>
-    /// Registers a page: one instance, created the first time it is opened (not at start-up; in the tray no page is made), and its sidebar
+    /// Registers a page: one instance, created the first time it is opened (not at start-up), and its sidebar
     /// entry, which needs only the page's static title, glyph and position.
     /// </summary>
     private static void AddPage<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TPage>(IServiceCollection services)

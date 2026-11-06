@@ -5,9 +5,8 @@ using TMPublisher.Runtime.Localization;
 namespace TMPublisher.Background.Localization;
 
 /// <summary>
-/// The scheduler's texts (notifications, the reasons stored on posts, the tray menu) in the language chosen in the window. The language files
-/// are read the first time a text is needed. Arguments are formatted with the invariant culture: the scheduler runs without ICU, and only
-/// names, counts and short reasons are put into its texts.
+/// The texts of a run (notifications, the reasons stored on posts) in the language chosen in the window. The language files are read the first
+/// time a text is needed. Arguments are formatted with the invariant culture: only names, counts and short reasons are put into these texts.
 /// </summary>
 public sealed class TextCatalog : ILocalizer
 {

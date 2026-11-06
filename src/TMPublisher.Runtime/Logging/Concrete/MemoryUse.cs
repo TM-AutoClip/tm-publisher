@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace TMPublisher.Runtime.Logging;
 
 /// <summary>
-/// The memory the process uses, written to the log at quiet moments (the background scheduler runs all day: this is the number to watch).
+/// The memory the process uses, written to the log at quiet moments (and the peak of a run, the number to watch now that nothing runs between posts).
 /// Windows: working set = what the system counts as in RAM now, private = memory only this process owns. Linux: RSS from
 /// <c>/proc/self/status</c> with its anonymous (the process's own) and file-backed parts; .NET's "private" there is the virtual data size and is
 /// not shown. GC heap = managed objects.
@@ -26,6 +26,21 @@ public static class MemoryUse
         using var process = Process.GetCurrentProcess();
         logger.LogInformation("Memory ({Reason}): working set {WorkingSetMb:F1} MB, private {PrivateMb:F1} MB, GC heap {GcHeapMb:F1} MB", reason,
             Mb(process.WorkingSet64), Mb(process.PrivateMemorySize64), gcHeap);
+    }
+
+    /// <summary>
+    /// The most the process held in RAM at once (Windows: peak working set; Linux: <c>VmHWM</c>, the peak RSS), in MB; <c>null</c> when the
+    /// system does not tell.
+    /// </summary>
+    public static double? PeakMb()
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            return Status() is { } status && status.TryGetValue("VmHWM", out var peak) ? peak / 1024.0 : null;
+        }
+
+        using var process = Process.GetCurrentProcess();
+        return Mb(process.PeakWorkingSet64);
     }
 
     private static double Mb(long bytes) => bytes / (1024.0 * 1024.0);

@@ -8,9 +8,10 @@ using TMPublisher.Core.Security;
 namespace TMPublisher.Scheduling;
 
 /// <summary>
-/// One timer for the whole schedule (it runs in the background scheduler process, the only place posts are sent from). The timer is set to the
-/// earliest scheduled post, at most <see cref="SchedulerLimits.SafetyInterval"/> ahead, and set again whenever something changes. No loop, no
-/// polling in between. A due post is first claimed in the database (scheduled → publishing, only if nobody changed it meanwhile) and then read
+/// Sends the scheduled posts, in one of two ways. While the window is open: one timer for the whole schedule, set to the earliest scheduled
+/// post, at most <see cref="SchedulerLimits.SafetyInterval"/> ahead, and set again whenever something changes (no loop, no polling in between).
+/// In a run the system scheduler started (<see cref="RunOnceAsync"/>): one pass over what is due and no timer; the run ends and the system
+/// scheduler starts the next one. Only one sender works per data folder at a time (the sender lock), so the two never run side by side. A due post is first claimed in the database (scheduled → publishing, only if nobody changed it meanwhile) and then read
 /// again and sent, so an edit, a move or a second scheduler can never make it go out twice or with old content. Posts are sent one at a time.
 /// A post found more than five minutes late (the computer was off or asleep, scheduling was paused) is not sent on its own: it becomes
 /// "missed" and waits for the user. Nothing is claimed while an old TM Publisher (0.1.0–0.1.2, which sends without claiming) runs on the
@@ -38,6 +39,7 @@ public sealed class PostScheduler : IDisposable
     private DateTimeOffset? _loggedNext;
     private bool _nextLogged;
     private DateTimeOffset _heartbeatUtc = DateTimeOffset.MinValue;
+    private bool _oneShot;
 
     /// <summary>Creates.</summary>
     public PostScheduler(IPostStore posts, PostSender sender, IOldVersionCheck oldVersion, ProcessingWatcher watcher, INotifier notifier,
@@ -57,6 +59,15 @@ public sealed class PostScheduler : IDisposable
 
     /// <summary>Raised when posts changed state (sent, stopped, blocked, missed): the window reads its lists again.</summary>
     public event EventHandler? AttentionChanged;
+
+    /// <summary>Raised after every pass over the schedule (also after a failed one): the system scheduler's next start is set again.</summary>
+    public event EventHandler? PassCompleted;
+
+    /// <summary>
+    /// After the last pass: the wait before a due post that could not be claimed is tried again (<see cref="SchedulerLimits.ClaimRetry"/>, never
+    /// a fast loop); <c>null</c> when nothing waits for a retry.
+    /// </summary>
+    public TimeSpan? RetryAfter { get; private set; }
 
     /// <summary>Whether the computer has a network connection now (replaced in tests).</summary>
     internal Func<bool> NetworkAvailable { get; set; } = System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable;
@@ -131,16 +142,44 @@ public sealed class PostScheduler : IDisposable
     }
 
     /// <summary>
-    /// The computer woke up: the due posts are sent once the network is back (a short settle wait, then at most
-    /// <see cref="SchedulerLimits.ResumeNetworkWait"/>), with their lateness measured from the moment of waking. Sending at once would fail
-    /// on a Wi-Fi that is still reconnecting and stop the post.
+    /// One pass for a run the system scheduler started: posts left "publishing" by a sender that ended become "stopped", then the due posts are
+    /// claimed and sent one by one, after a bounded wait for the network when something is due (a computer that just woke up may still be
+    /// reconnecting). Lateness is measured from <paramref name="startedUtc"/>: a post more than five minutes late at the start of the run
+    /// becomes "missed". No timer is set and no follow-up is kept; the caller sets the system scheduler's next start. <paramref name="paused"/>:
+    /// nothing is sent or marked missed.
     /// </summary>
-    public void WakeAfterResume()
+    public async Task RunOnceAsync(DateTimeOffset startedUtc, bool paused, CancellationToken cancellationToken)
     {
-        if (_started && !_stopped)
+        _oneShot = true;
+        _paused = paused;
+        foreach (var post in await _posts.ListByStatusAsync([PostStatus.Publishing], cancellationToken).ConfigureAwait(false))
         {
-            _ = ResumeAsync(_clock.GetUtcNow());
+            await StopForUserAsync(post, _text["problem.interrupted"], cancellationToken).ConfigureAwait(false);
+            _logger.LogWarning("Post {PostId} was interrupted when the previous sender ended; waiting for the user", post.Id);
         }
+
+        _started = true;
+        if (!paused && await _posts.NextScheduledAsync(cancellationToken).ConfigureAwait(false) is { ScheduledAtUtc: { } at } && at <= _clock.GetUtcNow())
+        {
+            await WaitForNetworkAsync(TimeSpan.Zero).ConfigureAwait(false);
+        }
+
+        await RunDueAsync(startedUtc, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Makes a stopped scheduler work again (the window stopped it for a restore): forgets the stop, then does what a start does.</summary>
+    public async Task StartAgainAsync(CancellationToken cancellationToken)
+    {
+        if (!_stopped)
+        {
+            await ReloadAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        _stopped = false;
+        Interlocked.Exchange(ref _stopRequests, 0);
+        _logger.LogInformation("Scheduler started again");
+        await StartAsync(cancellationToken, _paused).ConfigureAwait(false);
     }
 
     /// <summary>Pauses sending: due posts wait (and become "missed" when resumed more than five minutes late).</summary>
@@ -219,11 +258,26 @@ public sealed class PostScheduler : IDisposable
     /// <summary>Handles everything that is due now and sets the timer (also what the timer runs).</summary>
     public Task RunDueAsync(CancellationToken cancellationToken) => RunDueAsync(null, cancellationToken);
 
-    /// <summary>Waits after waking until the network is there (bounded), then handles the due posts.</summary>
+    /// <summary>
+    /// Waits after waking until the network is there (a short settle wait, then at most <see cref="SchedulerLimits.ResumeNetworkWait"/> in all),
+    /// then handles the due posts with their lateness measured from the moment of waking.
+    /// </summary>
     internal async Task ResumeAsync(DateTimeOffset resumedAtUtc)
     {
         await Task.Delay(SchedulerLimits.ResumeSettle, _clock).ConfigureAwait(false);
-        var waited = SchedulerLimits.ResumeSettle;
+        await WaitForNetworkAsync(SchedulerLimits.ResumeSettle).ConfigureAwait(false);
+        await TickAsync(resumedAtUtc).ConfigureAwait(false);
+    }
+
+    /// <summary>Waits while there is no network connection, until <see cref="SchedulerLimits.ResumeNetworkWait"/> has passed in all.</summary>
+    private async Task WaitForNetworkAsync(TimeSpan alreadyWaited)
+    {
+        var waited = alreadyWaited;
+        if (!NetworkAvailable())
+        {
+            _logger.LogInformation("No network connection yet; waiting at most {Wait} before sending", SchedulerLimits.ResumeNetworkWait - waited);
+        }
+
         while (!NetworkAvailable() && waited < SchedulerLimits.ResumeNetworkWait)
         {
             await Task.Delay(SchedulerLimits.ResumeNetworkCheck, _clock).ConfigureAwait(false);
@@ -232,10 +286,8 @@ public sealed class PostScheduler : IDisposable
 
         if (!NetworkAvailable())
         {
-            _logger.LogWarning("No network connection {Waited} after waking up; handling the due posts anyway", waited);
+            _logger.LogWarning("No network connection after {Waited}; handling the due posts anyway", waited);
         }
-
-        await TickAsync(resumedAtUtc).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -252,7 +304,7 @@ public sealed class PostScheduler : IDisposable
 
     private async Task RecoverAsync(CancellationToken cancellationToken)
     {
-        // Only one scheduler runs per data folder (its lock file), so a post still "publishing" here was left by a scheduler that ended.
+        // Only one sender works per data folder (the sender lock), so a post still "publishing" here was left by a sender that ended.
         foreach (var post in await _posts.ListByStatusAsync([PostStatus.Publishing], cancellationToken).ConfigureAwait(false))
         {
             await StopForUserAsync(post, _text["problem.interrupted"], cancellationToken).ConfigureAwait(false);
@@ -419,6 +471,7 @@ public sealed class PostScheduler : IDisposable
             AttentionChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        RetryAfter = stuck ? SchedulerLimits.ClaimRetry : null;
         await ArmAsync(cancellationToken, stuck ? SchedulerLimits.ClaimRetry : TimeSpan.Zero).ConfigureAwait(false);
     }
 
@@ -431,17 +484,17 @@ public sealed class PostScheduler : IDisposable
             _timer = null;
             NextWakeUtc = null;
             NextPostUtc = next?.ScheduledAtUtc;
-            if (_stopped || _paused)
+            if (!_stopped && !_paused && !_oneShot)
             {
-                return;
+                var wait = next?.ScheduledAtUtc is { } at ? at - _clock.GetUtcNow() : SchedulerLimits.SafetyInterval;
+                wait = wait < atLeast ? atLeast : wait > SchedulerLimits.SafetyInterval ? SchedulerLimits.SafetyInterval : wait;
+                NextWakeUtc = _clock.GetUtcNow() + wait;
+                _timer = _clock.CreateTimer(_ => _ = TickAsync(), null, wait, Timeout.InfiniteTimeSpan);
+                LogNext(next);
             }
-
-            var wait = next?.ScheduledAtUtc is { } at ? at - _clock.GetUtcNow() : SchedulerLimits.SafetyInterval;
-            wait = wait < atLeast ? atLeast : wait > SchedulerLimits.SafetyInterval ? SchedulerLimits.SafetyInterval : wait;
-            NextWakeUtc = _clock.GetUtcNow() + wait;
-            _timer = _clock.CreateTimer(_ => _ = TickAsync(), null, wait, Timeout.InfiniteTimeSpan);
-            LogNext(next);
         }
+
+        PassCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -511,7 +564,7 @@ public sealed class PostScheduler : IDisposable
     }
 
     /// <summary>The wait after the <paramref name="failures"/>-th error in a row.</summary>
-    internal static TimeSpan Backoff(int failures)
+    public static TimeSpan Backoff(int failures)
     {
         var ticks = SchedulerLimits.ClaimRetry.Ticks << Math.Clamp(failures - 1, 0, 4);
         return TimeSpan.FromTicks(Math.Min(ticks, SchedulerLimits.SafetyInterval.Ticks));
@@ -532,5 +585,7 @@ public sealed class PostScheduler : IDisposable
             NextWakeUtc = _clock.GetUtcNow() + wait;
             _timer = _clock.CreateTimer(_ => _ = TickAsync(), null, wait, Timeout.InfiniteTimeSpan);
         }
+
+        PassCompleted?.Invoke(this, EventArgs.Empty);
     }
 }

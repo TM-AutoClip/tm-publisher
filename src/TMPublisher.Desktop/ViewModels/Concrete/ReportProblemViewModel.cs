@@ -5,6 +5,7 @@ using TMPublisher.Desktop.Localization;
 using TMPublisher.Desktop.Os;
 using TMPublisher.Desktop.Paths;
 using TMPublisher.Desktop.Reports;
+using TMPublisher.Desktop.Sending;
 using TMPublisher.Runtime.Logging;
 using TMPublisher.Runtime.Os;
 using TMPublisher.Runtime.Paths;
@@ -18,7 +19,7 @@ namespace TMPublisher.Desktop.ViewModels;
 /// drag the zip into it), or copy the same details.
 /// </summary>
 public sealed partial class ReportProblemViewModel(AppPaths paths, Localizer text, DrawingMode drawing, IFileReveal reveal, IUrlOpener browser,
-    TimeProvider clock, ILogger<ReportProblemViewModel> logger) : ObservableObject
+    WindowSender sender, TimeProvider clock, ILogger<ReportProblemViewModel> logger) : ObservableObject
 {
     /// <summary>The status line of the dialog.</summary>
     [ObservableProperty]
@@ -122,7 +123,8 @@ public sealed partial class ReportProblemViewModel(AppPaths paths, Localizer tex
             new("Interface language", text.Language),
             new("Drawing", drawing.Gpu ? "graphics card (--gpu)" : "processor"),
             new("Data folder", paths.IsDefaultDirectory ? "default" : "own (--data-dir)"),
-            new("Background scheduler program", ProgramFiles.Scheduler is null ? "missing" : "found"),
+            new("Send while closed", sender.Trigger.State + " (" + sender.TriggerKind + ")"),
+            new("Old scheduler program (0.1.3-0.1.4) next to it", ProgramFiles.OldScheduler is null ? "no" : "yes (not used any more)"),
         };
         if (OperatingSystem.IsLinux())
         {

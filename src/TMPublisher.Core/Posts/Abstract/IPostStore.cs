@@ -27,7 +27,7 @@ public interface IPostStore
 
     /// <summary>
     /// Saves a user's decision on a waiting post (send now, new time, cancel, skip) as given, in one transaction: refused (<c>false</c>) when the
-    /// stored post is no longer in one of <paramref name="expectedStates"/> (the scheduler, also in the other process, changed it meanwhile).
+    /// stored post is no longer in one of <paramref name="expectedStates"/> (the sender, also in another process, changed it meanwhile).
     /// </summary>
     Task<bool> SaveDecisionAsync(Post post, IReadOnlyCollection<PostStatus> expectedStates, CancellationToken cancellationToken);
 

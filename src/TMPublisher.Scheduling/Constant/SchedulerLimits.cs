@@ -8,7 +8,7 @@ public static class SchedulerLimits
 
     /// <summary>
     /// Longest single wait: the schedule is read again at least this often even when nothing is due (one small database read). It covers a
-    /// wake-up signal from the window that never arrived and a clock change the system did not report.
+    /// clock change the system did not report.
     /// </summary>
     public static readonly TimeSpan SafetyInterval = TimeSpan.FromMinutes(15);
 
@@ -19,7 +19,7 @@ public static class SchedulerLimits
     public static readonly TimeSpan Heartbeat = TimeSpan.FromHours(1);
 
     /// <summary>
-    /// How long a stop "only when idle" (the window's Stop or Restore) waits for a run that is reading or claiming the schedule to end; a run
+    /// How long a stop "only when idle" (a restore in the window) waits for a run that is reading or claiming the schedule to end; a run
     /// that is still sending after this answers "busy".
     /// </summary>
     public static readonly TimeSpan IdleStopWait = TimeSpan.FromSeconds(2);
@@ -37,7 +37,7 @@ public static class SchedulerLimits
     public static readonly IReadOnlyList<TimeSpan> ProcessingChecks =
         [TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(20), TimeSpan.FromMinutes(30)];
 
-    /// <summary>Longest wait for the other process's token refresh of the same account to finish.</summary>
+    /// <summary>Longest wait for another process's token refresh of the same account to finish.</summary>
     public static readonly TimeSpan RefreshLockWait = TimeSpan.FromMinutes(2);
 
     /// <summary>How often a held refresh lock is tried again.</summary>

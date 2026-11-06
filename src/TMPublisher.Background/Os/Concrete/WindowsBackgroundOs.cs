@@ -1,11 +1,12 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
-using TMPublisher.Scheduling;
+using TMPublisher.Background.Legacy;
+using TMPublisher.Background.Triggers;
 using TMPublisher.Storage.Keys;
 
 namespace TMPublisher.Background.Os;
 
-/// <summary>Windows: DPAPI key protection, a hidden message window as the main loop, its tray icon and its resume / clock messages.</summary>
+/// <summary>Windows: DPAPI key protection, a Task Scheduler task as the system scheduler, the Run-key entry of 0.1.0–0.1.4 as a leftover.</summary>
 public sealed class WindowsBackgroundOs : IBackgroundOs
 {
     /// <inheritdoc />
@@ -14,19 +15,15 @@ public sealed class WindowsBackgroundOs : IBackgroundOs
     /// <inheritdoc />
     public void Register(IServiceCollection services)
     {
+        services.AddSingleton<ICommandRunner, ProcessCommandRunner>();
+        services.AddSingleton<ISystemTrigger, WindowsTaskTrigger>();
+        services.AddSingleton<ILegacyAutostart, WindowsLegacyAutostart>();
         if (OperatingSystem.IsWindows())
         {
-            Add(services);
+            AddKeyProtector(services);
         }
     }
 
     [SupportedOSPlatform("windows")]
-    private static void Add(IServiceCollection services)
-    {
-        services.AddSingleton<IKeyProtector, DpapiKeyProtector>();
-        services.AddSingleton<Win32MessageWindow>();
-        services.AddSingleton<IMainLoop>(s => s.GetRequiredService<Win32MessageWindow>());
-        services.AddSingleton<ITrayIcon, Win32Tray>();
-        services.AddSingleton<IPowerEvents, Win32PowerEvents>();
-    }
+    private static void AddKeyProtector(IServiceCollection services) => services.AddSingleton<IKeyProtector, DpapiKeyProtector>();
 }

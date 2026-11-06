@@ -1,8 +1,8 @@
 namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>
-/// What the sidebar shows for a page, known without creating it: pages are created on first navigation (the app spends most of the day in
-/// the tray, where no page is needed).
+/// What the sidebar shows for a page, known without creating it: pages are created on first navigation (a page that is not opened costs
+/// nothing).
 /// </summary>
 public interface IPageInfo
 {

@@ -12,7 +12,9 @@ namespace TMPublisher.Scheduling;
 
 /// <summary>
 /// Short follow-up of uploads the platform is still processing (YouTube, Facebook video): a few checks over about an hour, then the
-/// target stays "processing" with a note. Each check is one request; nothing runs in between.
+/// target stays "processing" with a note. Each check is one request; nothing runs in between. While the window is open the checks are timers
+/// (<see cref="Watch"/>); a run the system scheduler started does the checks whose time has come (<see cref="RunDueChecksAsync"/>) and tells
+/// when the next one is due, counted from when the target was sent.
 /// </summary>
 public sealed class ProcessingWatcher(IPostStore posts, IAccountStore accounts, IPlatformDirectory platforms, CredentialRenewer renewer, INotifier notifier,
     ILocalizer text, TimeProvider clock, ILogger<ProcessingWatcher> logger) : IDisposable
@@ -33,6 +35,75 @@ public sealed class ProcessingWatcher(IPostStore posts, IAccountStore accounts, 
                 Watch(post.Id, target.Id);
             }
         }
+    }
+
+    /// <summary>
+    /// For a run the system scheduler started (no timer lives past it): checks every target still processing whose check time has come, at
+    /// the same intervals as the window's follow-up but counted from when it was sent (1, 3, 8, 18, 38 and 68 minutes); after the last one it
+    /// stays "processing" with a note. Returns the time of the next check still to come; <c>null</c> when none.
+    /// </summary>
+    public async Task<DateTimeOffset?> RunDueChecksAsync(CancellationToken cancellationToken)
+    {
+        DateTimeOffset? next = null;
+        foreach (var (post, target, points) in await ProcessingAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var now = clock.GetUtcNow();
+            if (now >= points[0])
+            {
+                try
+                {
+                    if (await CheckAsync(post.Id, target.Id, cancellationToken).ConfigureAwait(false) != TargetStatus.Processing)
+                    {
+                        continue;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    logger.LogWarning("Post {PostId}: processing check of target {TargetId} failed ({Type}): {Reason}", post.Id, target.Id, ex.GetType().Name,
+                        Redactor.Redact(ex.Message));
+                }
+
+                if (now >= points[^1])
+                {
+                    logger.LogInformation("Post {PostId}: target {TargetId} still processing after the last check", post.Id, target.Id);
+                    await NoteStillProcessingAsync(post.Id, target.Id).ConfigureAwait(false);
+                    continue;
+                }
+            }
+
+            var due = points.First(p => p > now);
+            next = next is { } earlier && earlier < due ? earlier : due;
+        }
+
+        return next;
+    }
+
+    /// <summary>When the next processing check is due, counted from when each target was sent; <c>null</c> when nothing is followed.</summary>
+    public async Task<DateTimeOffset?> NextCheckUtcAsync(CancellationToken cancellationToken)
+    {
+        var now = clock.GetUtcNow();
+        DateTimeOffset? next = null;
+        foreach (var (_, _, points) in await ProcessingAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var due = points.FirstOrDefault(p => p > now, points[^1]);
+            next = next is { } earlier && earlier < due ? earlier : due;
+        }
+
+        return next;
+    }
+
+    /// <summary>The check times of a target sent at <paramref name="sentUtc"/>.</summary>
+    internal static IReadOnlyList<DateTimeOffset> CheckTimes(DateTimeOffset sentUtc)
+    {
+        var times = new List<DateTimeOffset>();
+        var at = sentUtc;
+        foreach (var wait in SchedulerLimits.ProcessingChecks)
+        {
+            at += wait;
+            times.Add(at);
+        }
+
+        return times;
     }
 
     /// <summary>Checks once now (tests and the "check now" button).</summary>
@@ -131,6 +202,22 @@ public sealed class ProcessingWatcher(IPostStore posts, IAccountStore accounts, 
             logger.LogWarning("Post {PostId}: processing check of target {TargetId} failed ({Type}): {Reason}", postId, targetId, ex.GetType().Name, Redactor.Redact(ex.Message));
             Arm(postId, targetId, attempt + 1);
         }
+    }
+
+    /// <summary>The targets still followed (processing, not yet noted as still processing after the last check) with their check times.</summary>
+    private async Task<List<(Post Post, PostTarget Target, IReadOnlyList<DateTimeOffset> Points)>> ProcessingAsync(CancellationToken cancellationToken)
+    {
+        var note = text["note.still_processing"];
+        var found = new List<(Post, PostTarget, IReadOnlyList<DateTimeOffset>)>();
+        foreach (var post in await posts.ListByStatusAsync([PostStatus.Done, PostStatus.Stopped, PostStatus.Publishing], cancellationToken).ConfigureAwait(false))
+        {
+            foreach (var target in post.Targets.Where(t => t.Status == TargetStatus.Processing && t.Message != note))
+            {
+                found.Add((post, target, CheckTimes(target.PublishedAtUtc ?? post.UpdatedAtUtc)));
+            }
+        }
+
+        return found;
     }
 
     private async Task NoteStillProcessingAsync(Guid postId, Guid targetId)

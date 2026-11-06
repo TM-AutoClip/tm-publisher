@@ -5,14 +5,14 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Core.Notifications;
-using TMPublisher.Runtime.Ipc;
+using TMPublisher.Runtime.Notifications;
 
 namespace TMPublisher.Desktop.Notifications;
 
 /// <summary>
-/// The window program started with <c>--notify</c> by the background scheduler when no window is open: no database, no main window, only the
-/// corner notifications. Each line of standard input is one notification (JSON); when the scheduler closes the input and the last notification
-/// has closed, the process ends. Its memory is used only while something is on screen.
+/// The program started with <c>--notify</c> by a run (no window is open): no database, no main window, only the corner notifications. Each
+/// line of standard input is one notification (JSON); when the run closes the input (or ends) and the last notification has closed, the
+/// process ends. Its memory is used only while something is on screen.
 /// </summary>
 public sealed class NotifyMode(ToastStack stack, ILogger<NotifyMode> logger)
 {
@@ -51,7 +51,7 @@ public sealed class NotifyMode(ToastStack stack, ILogger<NotifyMode> logger)
             using var reader = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             while (reader.ReadLine() is { } line)
             {
-                if (SchedulerChannel.ParseNotification(line) is not { } message)
+                if (NotificationLines.Parse(line) is not { } message)
                 {
                     logger.LogWarning("An input line was not a notification; ignored");
                     continue;
@@ -63,7 +63,7 @@ public sealed class NotifyMode(ToastStack stack, ILogger<NotifyMode> logger)
         }
         catch (Exception ex) when (ex is IOException or JsonException)
         {
-            logger.LogError(ex, "Reading the notifications from the scheduler failed");
+            logger.LogError(ex, "Reading the notifications from the run failed");
         }
 
         _inputEnded = true;

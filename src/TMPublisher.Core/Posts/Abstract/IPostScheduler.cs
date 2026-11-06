@@ -1,15 +1,16 @@
 namespace TMPublisher.Core.Posts;
 
 /// <summary>
-/// The schedule as the window sees it: the posts are sent by the background scheduler process; the window stores the user's decisions on
-/// posts that wait for one (missed, stopped, blocked) and tells the scheduler to read the schedule again.
+/// The schedule as the window sees it: while the window is open it sends the posts itself; it stores the user's decisions on posts that wait
+/// for one (missed, stopped, blocked), reads the schedule again after a change and sets the system scheduler's next start for the time it is
+/// closed.
 /// </summary>
 public interface IPostScheduler
 {
-    /// <summary>Raised when the posts waiting for a decision may have changed (also when the background scheduler sent or stopped a post).</summary>
+    /// <summary>Raised when the posts waiting for a decision may have changed (also when a post was sent or stopped).</summary>
     event EventHandler? AttentionChanged;
 
-    /// <summary>Asks the scheduler to read the schedule again (a post was saved or moved). Never waits for sending.</summary>
+    /// <summary>Reads the schedule again (a post was saved or moved, a setting changed). Never waits for sending.</summary>
     void Wake();
 
     /// <summary>

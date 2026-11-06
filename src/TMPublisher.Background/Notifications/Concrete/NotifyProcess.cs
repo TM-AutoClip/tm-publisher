@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Logging;
-using TMPublisher.Runtime.Ipc;
 using TMPublisher.Runtime.Notifications;
 using TMPublisher.Runtime.Os;
 using TMPublisher.Runtime.Paths;
@@ -9,10 +8,10 @@ using TMPublisher.Runtime.Paths;
 namespace TMPublisher.Background.Notifications;
 
 /// <summary>
-/// Shows corner notifications when no window is open: starts the window program with <c>--notify</c> (it shows only the notification
-/// windows and ends after the last one closes) and writes each notification as one JSON line to its standard input (never on the command
-/// line). The same process takes the notifications that follow; its input is closed when the last one's time is over, and the process ends.
-/// Its memory is used only while a notification is on screen.
+/// Shows corner notifications of a run (no window is open): starts the program with <c>--notify</c> (it shows only the notification windows
+/// and ends after the last one closes) and writes each notification as one JSON line to its standard input (never on the command line). The
+/// same process takes the notifications that follow; its input is closed when the last one's time is over or when the run ends, and it ends
+/// after the last notification closed. The run itself never loads a UI library.
 /// </summary>
 public sealed class NotifyProcess(AppPaths paths, TimeProvider clock, ILogger<NotifyProcess> logger) : IDisposable
 {
@@ -50,7 +49,7 @@ public sealed class NotifyProcess(AppPaths paths, TimeProvider clock, ILogger<No
 
                 try
                 {
-                    _input!.WriteLine(SchedulerChannel.NotificationJson(message));
+                    _input!.WriteLine(NotificationLines.Write(message));
                     _input.Flush();
                     break;
                 }
@@ -85,9 +84,9 @@ public sealed class NotifyProcess(AppPaths paths, TimeProvider clock, ILogger<No
 
     private bool Start()
     {
-        if (ProgramFiles.Window is not { } window)
+        if (ProgramFiles.Self is not { } window)
         {
-            logger.LogError("The window program was not found next to the scheduler; the notification is only written to this log");
+            logger.LogError("The program file could not be named; the notification is only written to this log");
             return false;
         }
 

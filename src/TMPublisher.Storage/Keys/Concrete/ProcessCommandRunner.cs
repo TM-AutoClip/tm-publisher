@@ -23,6 +23,9 @@ public sealed class ProcessCommandRunner : ICommandRunner
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+
+            // No console window flashes up when the window or a run calls a command line program (schtasks, systemctl, secret-tool).
+            CreateNoWindow = true,
         };
         foreach (var argument in arguments)
         {

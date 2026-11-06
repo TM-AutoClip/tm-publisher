@@ -44,7 +44,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Shows the "Report a problem" dialog (set by the main window).</summary>
     public Func<ReportProblemViewModel, Task>? ShowReportProblem { get; set; }
 
-    /// <summary>The user chose "Close" in the window (the window program ends; the background scheduler keeps sending).</summary>
+    /// <summary>The user chose "Close" in the window (the program ends; the system scheduler sends while it is closed).</summary>
     public event EventHandler? QuitRequested;
 
     /// <summary>Opens the "Report a problem" dialog (nothing is sent from there by the program).</summary>

@@ -7,7 +7,7 @@ namespace TMPublisher.Desktop.Notifications;
 /// <summary>
 /// The bottom-right notification windows (decision: the app's own small window, the same on Windows and every Linux desktop, without AUMID
 /// registration, D-Bus notification daemons or their own time limits). Up to three are stacked; each closes after its duration or with its
-/// close button. Used by the open window and by the short-lived <c>--notify</c> process of the background scheduler.
+/// close button. Used by the open window and by the short-lived <c>--notify</c> process of a run.
 /// </summary>
 public sealed class ToastStack
 {

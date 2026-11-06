@@ -5,7 +5,7 @@ namespace TMPublisher.Desktop.ViewModels;
 /// <summary>
 /// A page of the main window. Each page also implements <see cref="IPageInfo"/> (title, glyph, sidebar position) and is registered with
 /// <c>AddPage</c>; it is created the first time it is shown and then kept while the window is open. Closing the window ends the window
-/// program (the background scheduler keeps sending), so a page with unsaved input says so (<see cref="HasUnsavedWork"/>).
+/// program (the system scheduler sends while it is closed), so a page with unsaved input says so (<see cref="HasUnsavedWork"/>).
 /// </summary>
 public abstract partial class PageViewModelBase : ObservableObject
 {

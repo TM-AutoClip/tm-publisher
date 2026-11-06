@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Avalonia window program: views, view models, autostart, single instance, first-run wizard, composition root, and the short-lived
-    notification process ("notify" mode). It runs only while the user has the window open; the background scheduler (TMPublisher.Background)
-    sends the posts.
+    The one program file (TMPublisher.exe / tm-publisher): the Avalonia window (views, view models, single instance, first-run wizard,
+    composition root), the short-lived notification process ("notify" mode) and the run the system scheduler starts ("run-due" mode, in
+    TMPublisher.Background, which loads no Avalonia assembly). Published self-contained as a single file with its native libraries inside.
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -37,6 +37,7 @@
     <ProjectReference Include="..\TMPublisher.Storage\TMPublisher.Storage.csproj" />
     <ProjectReference Include="..\TMPublisher.Scheduling\TMPublisher.Scheduling.csproj" />
     <ProjectReference Include="..\TMPublisher.Runtime\TMPublisher.Runtime.csproj" />
+    <ProjectReference Include="..\TMPublisher.Background\TMPublisher.Background.csproj" />
   </ItemGroup>
   <ItemGroup>
     <AvaloniaResource Include="Assets\Fonts\*.ttf" />

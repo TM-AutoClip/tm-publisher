@@ -6,7 +6,7 @@ namespace TMPublisher.Scheduling;
 /// <summary>
 /// The user's decisions on posts that wait for one (missed, blocked, stopped): send now, new time, cancel, try again, skip the failed target.
 /// A decision only changes the stored post, and only while it is still in a state the decision fits (one database transaction): nothing is sent
-/// here. "Send now" schedules the post for now; the background scheduler then claims and sends it like every other post, so there is one
+/// here. "Send now" schedules the post for now; the sender then claims and sends it like every other post, so there is one
 /// sending path and a post cannot go out twice.
 /// </summary>
 public sealed class PostDecisions(IPostStore posts, TimeProvider clock, ILogger<PostDecisions> logger)

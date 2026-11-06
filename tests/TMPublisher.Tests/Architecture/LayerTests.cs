@@ -4,8 +4,9 @@ using Shouldly;
 namespace TMPublisher.Tests.Architecture;
 
 /// <summary>
-/// Layer boundaries: Core references no project of ours; Platforms, Storage, Scheduling and Runtime reference Core only; only the two
-/// composition roots (the window program and the background scheduler) reference them. A new reference across the boundary fails here.
+/// Layer boundaries: Core references no project of ours; Platforms, Storage, Scheduling and Runtime reference Core only; Background (sending
+/// without a window) references those; the window references all of them. A new reference across the boundary fails here, and so does a UI
+/// package in Background (a run must load no UI library).
 /// </summary>
 public sealed class LayerTests
 {
@@ -16,7 +17,7 @@ public sealed class LayerTests
         { "TMPublisher.Storage", ["TMPublisher.Core"] },
         { "TMPublisher.Scheduling", ["TMPublisher.Core"] },
         { "TMPublisher.Runtime", ["TMPublisher.Core"] },
-        { "TMPublisher.Desktop", ["TMPublisher.Core", "TMPublisher.Platforms", "TMPublisher.Storage", "TMPublisher.Scheduling", "TMPublisher.Runtime"] },
+        { "TMPublisher.Desktop", ["TMPublisher.Core", "TMPublisher.Platforms", "TMPublisher.Storage", "TMPublisher.Scheduling", "TMPublisher.Runtime", "TMPublisher.Background"] },
         { "TMPublisher.Background", ["TMPublisher.Core", "TMPublisher.Platforms", "TMPublisher.Storage", "TMPublisher.Scheduling", "TMPublisher.Runtime"] },
     };
 
@@ -38,5 +39,13 @@ public sealed class LayerTests
         var path = Path.Combine(RepositoryFiles.Root, "src", "TMPublisher.Core", "TMPublisher.Core.csproj");
         var packages = XDocument.Load(path).Descendants("PackageReference").Select(e => e.Attribute("Include")!.Value).ToArray();
         packages.ShouldBe(["Microsoft.Extensions.Logging.Abstractions"]);
+    }
+
+    [Fact]
+    public void SendingWithoutAWindowHasNoUiPackage()
+    {
+        var path = Path.Combine(RepositoryFiles.Root, "src", "TMPublisher.Background", "TMPublisher.Background.csproj");
+        var packages = XDocument.Load(path).Descendants("PackageReference").Select(e => e.Attribute("Include")!.Value).Order(StringComparer.Ordinal).ToArray();
+        packages.ShouldBe(["Microsoft.Extensions.DependencyInjection", "Microsoft.Extensions.Logging"]);
     }
 }

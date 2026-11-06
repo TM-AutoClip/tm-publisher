@@ -492,7 +492,7 @@ public sealed partial class ComposeViewModel(IAccountStore accounts, IGroupStore
             target.Order = i;
             target.Status = TargetStatus.Pending;
 
-            // Stored in Unicode NFC: the background scheduler (built without ICU) checks lengths on the stored text as it is, and X counts NFC.
+            // Stored in Unicode NFC: the sender checks lengths on the stored text as it is, and X counts NFC.
             target.Text = target.Text.Normalize(System.Text.NormalizationForm.FormC);
             target.Title = target.Title.Normalize(System.Text.NormalizationForm.FormC);
             return target;

@@ -18,7 +18,7 @@ public sealed class OldVersionGuardTests
     }
 
     [Fact]
-    public void OnWindowsOnlyAnOwnedMutexIsAnOldVersionNotTheHandleTheSchedulerKeeps()
+    public void OnWindowsOnlyAnOwnedMutexIsAnOldVersionNotAnOpenHandle()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -28,7 +28,8 @@ public sealed class OldVersionGuardTests
         var guard = new OldVersionGuard(Path.Combine(Path.GetTempPath(), "tmpublisher-tests", Guid.NewGuid().ToString("N")), [], NullLogger<OldVersionGuard>.Instance);
         guard.OldVersionRuns().ShouldBeFalse();
 
-        using (guard.HoldName())
+        // A handle that only opens the name (does not own it) is not an old version.
+        using (new Mutex(false, guard.Name, out _))
         {
             guard.OldVersionRuns().ShouldBeFalse();
         }
