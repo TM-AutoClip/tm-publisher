@@ -22,7 +22,7 @@ file too). Each keeps its own license.
 | .NET runtime and Microsoft.Extensions.* | MIT |
 | Avalonia (UI) with SkiaSharp and HarfBuzzSharp | MIT |
 | CommunityToolkit.Mvvm | MIT |
-| Microsoft.Data.Sqlite | MIT |
+| Entity Framework Core (SQLite) and Microsoft.Data.Sqlite | MIT |
 | SQLite3 Multiple Ciphers (SQLite3MC.PCLRaw.bundle) and SQLitePCLRaw | MIT |
 | SQLite | Public domain |
 | Konscious.Security.Cryptography.Argon2 | MIT |

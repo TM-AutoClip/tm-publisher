@@ -1,36 +1,27 @@
-using System.Globalization;
-using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using TMPublisher.Core.Posts;
 using TMPublisher.Storage.Database;
 
 namespace TMPublisher.Storage.Stores;
 
-/// <summary><see cref="IPostStore"/> on the encrypted database (plain SQL; the window and the background scheduler share the file).</summary>
-public sealed class PostStore(IConnectionFactory connections, TimeProvider clock) : IPostStore
+/// <summary><see cref="IPostStore"/> on the encrypted database (the window and a run of the system scheduler share the file).</summary>
+public sealed class PostStore(IDbContextFactory<PublisherDbContext> contexts, TimeProvider clock) : StoreBase(contexts), IPostStore
 {
-    private const string PostColumns =
-        "\"Id\", \"Kind\", \"Title\", \"Body\", \"Tags\", \"Media\", \"ScheduledAtUtc\", \"Status\", \"GroupId\", \"CreatedAtUtc\", \"UpdatedAtUtc\"";
-
-    private const string TargetColumns =
-        "\"Id\", \"PostId\", \"AccountId\", \"Order\", \"Text\", \"Title\", \"Keywords\", \"Options\", \"Status\", \"ExternalId\", \"Url\", \"Message\", \"PublishedAtUtc\"";
-
-    private static StorageJsonContext Json => StorageJsonContext.Default;
-
     /// <inheritdoc />
     public async Task<Post?> GetAsync(Guid id, CancellationToken cancellationToken)
     {
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        return (await ReadAsync(connection, null, "\"Id\" = $id", null, cancellationToken, ("$id", Columns.Id(id))).ConfigureAwait(false)).FirstOrDefault();
+        await using var context = Open();
+        return await WithTargets(context).FirstOrDefaultAsync(p => p.Id == id, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Post>> ListAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken cancellationToken)
     {
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        var posts = await ReadAsync(connection, null,
-            "(\"ScheduledAtUtc\" IS NOT NULL AND \"ScheduledAtUtc\" >= $from AND \"ScheduledAtUtc\" < $to) "
-            + "OR (\"ScheduledAtUtc\" IS NULL AND \"CreatedAtUtc\" >= $from AND \"CreatedAtUtc\" < $to)",
-            null, cancellationToken, ("$from", fromUtc.UtcTicks), ("$to", toUtc.UtcTicks)).ConfigureAwait(false);
+        await using var context = Open();
+        var posts = await WithTargets(context)
+            .Where(p => (p.ScheduledAtUtc != null && p.ScheduledAtUtc >= fromUtc && p.ScheduledAtUtc < toUtc)
+                || (p.ScheduledAtUtc == null && p.CreatedAtUtc >= fromUtc && p.CreatedAtUtc < toUtc))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
         return posts.OrderBy(p => p.ScheduledAtUtc ?? p.CreatedAtUtc).ToList();
     }
 
@@ -43,24 +34,22 @@ public sealed class PostStore(IConnectionFactory connections, TimeProvider clock
             return [];
         }
 
-        // The states are numbers of our own enum, written into the statement as numbers (nothing from the user).
-        var list = string.Join(", ", statuses.Select(s => ((int)s).ToString(CultureInfo.InvariantCulture)));
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        var posts = await ReadAsync(connection, null, $"\"Status\" IN ({list})", null, cancellationToken).ConfigureAwait(false);
+        var wanted = statuses.ToList();
+        await using var context = Open();
+        var posts = await WithTargets(context).Where(p => wanted.Contains(p.Status)).ToListAsync(cancellationToken).ConfigureAwait(false);
         return posts.OrderBy(p => p.ScheduledAtUtc ?? p.CreatedAtUtc).ToList();
     }
 
     /// <inheritdoc />
     public async Task<Post?> NextScheduledAsync(CancellationToken cancellationToken)
     {
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        var posts = await ReadAsync(connection, null, "\"Status\" = $status AND \"ScheduledAtUtc\" IS NOT NULL", "ORDER BY \"ScheduledAtUtc\" LIMIT 1",
-            cancellationToken, ("$status", (int)PostStatus.Scheduled)).ConfigureAwait(false);
-        return posts.FirstOrDefault();
+        await using var context = Open();
+        return await WithTargets(context).Where(p => p.Status == PostStatus.Scheduled && p.ScheduledAtUtc != null).OrderBy(p => p.ScheduledAtUtc)
+            .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public async Task SaveAsync(Post post, CancellationToken cancellationToken)
+    public Task SaveAsync(Post post, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(post);
         var now = clock.GetUtcNow();
@@ -70,15 +59,7 @@ public sealed class PostStore(IConnectionFactory connections, TimeProvider clock
         }
 
         post.UpdatedAtUtc = now;
-        foreach (var target in post.Targets)
-        {
-            target.PostId = post.Id;
-        }
-
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var transaction = connection.BeginTransaction(deferred: false);
-        await WriteAsync(connection, transaction, post, cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return InWriteTransactionAsync(context => WriteAsync(context, post, cancellationToken), cancellationToken);
     }
 
     /// <inheritdoc />
@@ -93,195 +74,99 @@ public sealed class PostStore(IConnectionFactory connections, TimeProvider clock
     public async Task<bool> TryMoveAsync(PostClaim claim, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(claim);
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = Columns.Command(connection,
-            "UPDATE \"posts\" SET \"Status\" = $to, \"UpdatedAtUtc\" = $now WHERE \"Id\" = $id AND \"Status\" = $from AND \"ScheduledAtUtc\" IS $at",
-            null, ("$to", (int)claim.To), ("$now", clock.GetUtcNow().UtcTicks), ("$id", Columns.Id(claim.PostId)), ("$from", (int)claim.From),
-            ("$at", Columns.OptionalTicks(claim.ScheduledAtUtc)));
-        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) == 1;
+        var now = clock.GetUtcNow();
+        await using var context = Open();
+        var claimed = context.Posts.Where(p => p.Id == claim.PostId && p.Status == claim.From);
+        claimed = claim.ScheduledAtUtc is { } at ? claimed.Where(p => p.ScheduledAtUtc == at) : claimed.Where(p => p.ScheduledAtUtc == null);
+        var changed = await claimed.ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, claim.To).SetProperty(p => p.UpdatedAtUtc, now), cancellationToken)
+            .ConfigureAwait(false);
+        return changed == 1;
     }
 
     /// <inheritdoc />
     public async Task SaveTargetAsync(PostTarget target, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(target);
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = Columns.Command(connection,
-            "UPDATE \"post_targets\" SET \"PostId\" = $post, \"AccountId\" = $account, \"Order\" = $order, \"Text\" = $text, \"Title\" = $title, "
-            + "\"Keywords\" = $keywords, \"Options\" = $options, \"Status\" = $status, \"ExternalId\" = $external, \"Url\" = $url, \"Message\" = $message, "
-            + "\"PublishedAtUtc\" = $published WHERE \"Id\" = $id",
-            null, TargetParameters(target));
-        if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1)
+        await using var context = Open();
+        context.Entry(target).State = EntityState.Modified;
+        try
         {
-            throw new InvalidOperationException($"Target {target.Id} of post {target.PostId} is no longer stored; its state was not saved.");
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // No row was changed: the post was deleted (or edited without this target) meanwhile.
+            throw new InvalidOperationException($"Target {target.Id} of post {target.PostId} is no longer stored; its state was not saved.", ex);
         }
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
-    {
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var transaction = connection.BeginTransaction(deferred: false);
-        await using (var targets = Columns.Command(connection, "DELETE FROM \"post_targets\" WHERE \"PostId\" = $id", transaction, ("$id", Columns.Id(id))))
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken) =>
+        InWriteTransactionAsync(async context =>
         {
-            await targets.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
+            await context.Targets.Where(t => t.PostId == id).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            await context.Posts.Where(p => p.Id == id).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        }, cancellationToken);
 
-        await using (var post = Columns.Command(connection, "DELETE FROM \"posts\" WHERE \"Id\" = $id", transaction, ("$id", Columns.Id(id))))
-        {
-            await post.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-    }
+    /// <summary>Posts read without tracking, each with its targets in sending order.</summary>
+    private static IQueryable<Post> WithTargets(PublisherDbContext context) => context.Posts.AsNoTracking().Include(p => p.Targets.OrderBy(t => t.Order));
 
     /// <summary>
-    /// Writes the post only while the stored one is in <paramref name="expectedStates"/>. BEGIN IMMEDIATE takes SQLite's write lock at once, so
-    /// the scheduler (also in the other process) cannot change the post between this check and the write. An edit keeps the stored targets that
-    /// already reached their platform (<see cref="PostEditing.KeepFinished"/>); a decision is stored as given.
+    /// Writes the post only while the stored one is in <paramref name="expectedStates"/>, in one write transaction (the scheduler, also in the
+    /// other process, cannot change the post between this check and the write). An edit keeps the stored targets that already reached their
+    /// platform (<see cref="PostEditing.KeepFinished"/>); a decision is stored as given.
     /// </summary>
-    private async Task<bool> SaveIfAsync(Post post, IReadOnlyCollection<PostStatus> expectedStates, bool keepFinished, CancellationToken cancellationToken)
+    private Task<bool> SaveIfAsync(Post post, IReadOnlyCollection<PostStatus> expectedStates, bool keepFinished, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(post);
         ArgumentNullException.ThrowIfNull(expectedStates);
-        await using var connection = await connections.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var transaction = connection.BeginTransaction(deferred: false);
-        var stored = (await ReadAsync(connection, transaction, "\"Id\" = $id", null, cancellationToken, ("$id", Columns.Id(post.Id))).ConfigureAwait(false))
-            .FirstOrDefault();
-        if (stored is not null)
+        return InWriteTransactionAsync(async context =>
         {
-            if (!expectedStates.Contains(stored.Status))
+            var stored = await WithTargets(context).FirstOrDefaultAsync(p => p.Id == post.Id, cancellationToken).ConfigureAwait(false);
+            if (stored is not null)
             {
-                return false;
+                if (!expectedStates.Contains(stored.Status))
+                {
+                    return false;
+                }
+
+                if (keepFinished)
+                {
+                    post.Targets = PostEditing.KeepFinished(post.Targets, stored.Targets);
+                }
+
+                post.CreatedAtUtc = stored.CreatedAtUtc;
             }
 
-            if (keepFinished)
+            post.UpdatedAtUtc = clock.GetUtcNow();
+            if (post.CreatedAtUtc == default)
             {
-                post.Targets = PostEditing.KeepFinished(post.Targets, stored.Targets);
+                post.CreatedAtUtc = post.UpdatedAtUtc;
             }
 
-            post.CreatedAtUtc = stored.CreatedAtUtc;
-        }
+            await WriteAsync(context, post, cancellationToken).ConfigureAwait(false);
+            return true;
+        }, cancellationToken);
+    }
 
-        post.UpdatedAtUtc = clock.GetUtcNow();
-        if (post.CreatedAtUtc == default)
-        {
-            post.CreatedAtUtc = post.UpdatedAtUtc;
-        }
-
+    /// <summary>
+    /// Inside a write transaction: replaces the post row (inserted or updated, so the targets are not cascaded away) and all its targets (the
+    /// stored ones are deleted, the given ones inserted).
+    /// </summary>
+    private static async Task WriteAsync(PublisherDbContext context, Post post, CancellationToken cancellationToken)
+    {
         foreach (var target in post.Targets)
         {
             target.PostId = post.Id;
         }
 
-        await WriteAsync(connection, transaction, post, cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        return true;
-    }
-
-    /// <summary>Posts matching <paramref name="where"/> with their targets in sending order (two statements, same condition).</summary>
-    private static async Task<List<Post>> ReadAsync(SqliteConnection connection, SqliteTransaction? transaction, string where, string? tail,
-        CancellationToken cancellationToken, params (string Name, object Value)[] parameters)
-    {
-        var posts = new List<Post>();
-        var byId = new Dictionary<Guid, Post>();
-        await using (var command = Columns.Command(connection, $"SELECT {PostColumns} FROM \"posts\" WHERE {where} {tail}", transaction, parameters))
-        await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
-        {
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-            {
-                var post = new Post
-                {
-                    Id = Columns.ReadId(reader, 0),
-                    Kind = (PostKind)reader.GetInt32(1),
-                    Title = reader.GetString(2),
-                    Body = reader.GetString(3),
-                    Tags = Columns.ReadJson(reader, 4, Json.ListString),
-                    Media = Columns.ReadJson(reader, 5, Json.ListMediaItem),
-                    ScheduledAtUtc = Columns.ReadOptionalTime(reader, 6),
-                    Status = (PostStatus)reader.GetInt32(7),
-                    GroupId = Columns.ReadOptionalId(reader, 8),
-                    CreatedAtUtc = Columns.ReadTime(reader, 9),
-                    UpdatedAtUtc = Columns.ReadTime(reader, 10),
-                };
-                posts.Add(post);
-                byId[post.Id] = post;
-            }
-        }
-
-        if (posts.Count == 0)
-        {
-            return posts;
-        }
-
-        var sql = $"SELECT {TargetColumns} FROM \"post_targets\" WHERE \"PostId\" IN (SELECT \"Id\" FROM \"posts\" WHERE {where} {tail}) ORDER BY \"Order\"";
-        await using (var command = Columns.Command(connection, sql, transaction, parameters))
-        await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
-        {
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-            {
-                var target = new PostTarget
-                {
-                    Id = Columns.ReadId(reader, 0),
-                    PostId = Columns.ReadId(reader, 1),
-                    AccountId = Columns.ReadId(reader, 2),
-                    Order = reader.GetInt32(3),
-                    Text = reader.GetString(4),
-                    Title = reader.GetString(5),
-                    Keywords = Columns.ReadJson(reader, 6, Json.ListString),
-                    Options = Columns.ReadJson(reader, 7, Json.DictionaryStringString),
-                    Status = (TargetStatus)reader.GetInt32(8),
-                    ExternalId = Columns.ReadOptionalText(reader, 9),
-                    Url = Columns.ReadOptionalText(reader, 10),
-                    Message = Columns.ReadOptionalText(reader, 11),
-                    PublishedAtUtc = Columns.ReadOptionalTime(reader, 12),
-                };
-                if (byId.TryGetValue(target.PostId, out var owner))
-                {
-                    owner.Targets.Add(target);
-                }
-            }
-        }
-
-        return posts;
-    }
-
-    /// <summary>Replaces the post row (upsert, so the targets are not cascaded away) and all its targets.</summary>
-    private static async Task WriteAsync(SqliteConnection connection, SqliteTransaction transaction, Post post, CancellationToken cancellationToken)
-    {
-        await using (var delete = Columns.Command(connection, "DELETE FROM \"post_targets\" WHERE \"PostId\" = $id", transaction, ("$id", Columns.Id(post.Id))))
-        {
-            await delete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        await using (var upsert = Columns.Command(connection,
-            $"INSERT INTO \"posts\" ({PostColumns}) VALUES ($id, $kind, $title, $body, $tags, $media, $at, $status, $group, $created, $updated) "
-            + "ON CONFLICT(\"Id\") DO UPDATE SET \"Kind\" = excluded.\"Kind\", \"Title\" = excluded.\"Title\", \"Body\" = excluded.\"Body\", "
-            + "\"Tags\" = excluded.\"Tags\", \"Media\" = excluded.\"Media\", \"ScheduledAtUtc\" = excluded.\"ScheduledAtUtc\", \"Status\" = excluded.\"Status\", "
-            + "\"GroupId\" = excluded.\"GroupId\", \"CreatedAtUtc\" = excluded.\"CreatedAtUtc\", \"UpdatedAtUtc\" = excluded.\"UpdatedAtUtc\"",
-            transaction,
-            ("$id", Columns.Id(post.Id)), ("$kind", (int)post.Kind), ("$title", post.Title), ("$body", post.Body), ("$tags", Columns.Json(post.Tags, Json.ListString)),
-            ("$media", Columns.Json(post.Media, Json.ListMediaItem)), ("$at", Columns.OptionalTicks(post.ScheduledAtUtc)), ("$status", (int)post.Status),
-            ("$group", Columns.OptionalId(post.GroupId)), ("$created", post.CreatedAtUtc.UtcTicks), ("$updated", post.UpdatedAtUtc.UtcTicks)))
-        {
-            await upsert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-
+        await context.Targets.Where(t => t.PostId == post.Id).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await TrackAsync(context, post, cancellationToken).ConfigureAwait(false);
         foreach (var target in post.Targets)
         {
-            await using var insert = Columns.Command(connection,
-                $"INSERT INTO \"post_targets\" ({TargetColumns}) VALUES ($id, $post, $account, $order, $text, $title, $keywords, $options, $status, $external, $url, "
-                + "$message, $published)",
-                transaction, TargetParameters(target));
-            await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            context.Entry(target).State = EntityState.Added;
         }
-    }
 
-    private static (string Name, object Value)[] TargetParameters(PostTarget target) =>
-    [
-        ("$id", Columns.Id(target.Id)), ("$post", Columns.Id(target.PostId)), ("$account", Columns.Id(target.AccountId)), ("$order", target.Order),
-        ("$text", target.Text), ("$title", target.Title), ("$keywords", Columns.Json(target.Keywords, Json.ListString)),
-        ("$options", Columns.Json(target.Options, Json.DictionaryStringString)), ("$status", (int)target.Status), ("$external", Columns.OptionalText(target.ExternalId)),
-        ("$url", Columns.OptionalText(target.Url)), ("$message", Columns.OptionalText(target.Message)), ("$published", Columns.OptionalTicks(target.PublishedAtUtc)),
-    ];
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

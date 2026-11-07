@@ -17,6 +17,10 @@
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
   <ItemGroup>
+    <!-- A database written by 0.1.5 (key in Storage/Fixture015.cs): the format tests open it with the current code. -->
+    <None Include="Storage\Fixtures\*.sqlite" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\TMPublisher.Core\TMPublisher.Core.csproj" />
     <ProjectReference Include="..\..\src\TMPublisher.Platforms\TMPublisher.Platforms.csproj" />
     <ProjectReference Include="..\..\src\TMPublisher.Storage\TMPublisher.Storage.csproj" />

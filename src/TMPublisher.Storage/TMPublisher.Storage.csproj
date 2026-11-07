@@ -1,13 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Encrypted SQLite (SQLite3 Multiple Ciphers) with plain SQL, key protectors, backup format. Depends on Core only. No EF Core since 0.1.3:
-    an ORM model costs memory and start-up time and needs reflection (the program is published trimmed).
+    Encrypted SQLite (SQLite3 Multiple Ciphers) through EF Core (no SQL written by hand), key protectors, backup format. Depends on Core only.
+    0.1.0-0.1.2 used EF Core, 0.1.3-0.1.5 wrote the same tables with hand-written SQL, now EF Core again: the file format did not change.
   -->
   <PropertyGroup>
-    <!-- The program is published trimmed: trimming (and AOT) warnings are errors here too. -->
-    <IsAotCompatible>true</IsAotCompatible>
+    <!--
+      The program is published trimmed (one JIT program file since 0.1.5, nothing is compiled to native code): trimming warnings are errors
+      here too. Not marked AOT compatible: EF Core needs dynamic code (it is not compatible with Native AOT without a compiled model).
+    -->
+    <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" />
     <PackageReference Include="Microsoft.Data.Sqlite.Core" />
     <PackageReference Include="SQLite3MC.PCLRaw.bundle" />
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" />

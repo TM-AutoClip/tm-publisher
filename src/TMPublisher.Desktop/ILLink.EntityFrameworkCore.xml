@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Trimming: the trim-analysis warnings found INSIDE EF Core's own three assemblies are not shown (module scope: these assemblies only; the
+  warning ids are the ones EF Core 10 produces). Why it is safe: the three assemblies are not trimmed (IsTrimmable=false in
+  TMPublisher.Desktop.csproj), so nothing they reach by reflection inside themselves is removed; the entity types are kept by the annotations
+  of DbSet<T> and ModelBuilder.Entity<T>; our own model code is analysed like every other assembly. The assemblies outside EF Core it reflects
+  into (System.Linq.Queryable, System.Linq, Microsoft.Data.Sqlite, Microsoft.EntityFrameworkCore.Abstractions) are kept whole as well
+  (TrimmerRootAssembly). The published program is run on the 0.1.5 test database by tools/check-published.ps1. A warning from any other
+  assembly, or a new kind of warning from EF Core, still stops the build; if the SDK stopped reading _ExtraTrimmerArgs, these suppressions
+  would fall away and the build would stop with the warnings (warnings are errors), not pass silently.
+-->
+<linker>
+  <assembly fullname="Microsoft.EntityFrameworkCore">
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2026</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2046</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2055</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2060</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2062</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2067</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2069</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2070</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2071</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2072</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2073</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2074</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2075</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2076</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2077</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2081</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2087</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2090</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2091</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2092</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2093</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2111</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+  </assembly>
+  <assembly fullname="Microsoft.EntityFrameworkCore.Relational">
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2026</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2046</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2055</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2060</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2062</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2067</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2069</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2070</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2071</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2072</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2073</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2074</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2075</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2076</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2077</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2081</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2087</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2090</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2091</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2092</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2093</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2111</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+  </assembly>
+  <assembly fullname="Microsoft.EntityFrameworkCore.Sqlite">
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2026</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2046</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2055</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2060</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2062</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2067</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2069</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2070</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2071</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2072</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2073</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2074</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2075</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2076</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2077</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2081</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2087</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2090</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2091</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2092</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2093</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>Trimming</argument>
+      <argument>IL2111</argument>
+      <property name="Scope">module</property>
+      <property name="Justification">EF Core is kept whole (not trimmed) in the published program; see the comment at the top.</property>
+    </attribute>
+  </assembly>
+</linker>

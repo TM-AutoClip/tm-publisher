@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Background.Legacy;
@@ -64,7 +65,7 @@ public static class SendingServices
         // Storage: the encrypted database with the stores sending needs.
         services.AddSingleton<DatabaseKey>();
         services.AddSingleton<Vault>();
-        services.AddSingleton<IConnectionFactory, ConnectionFactory>();
+        services.AddSingleton<IDbContextFactory<PublisherDbContext>, PublisherDbContextFactory>();
         services.AddSingleton<IAccountStore, AccountStore>();
         services.AddSingleton<ICredentialStore, CredentialStore>();
         services.AddSingleton<IPostStore, PostStore>();

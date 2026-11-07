@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TMPublisher.Core.Accounts;
@@ -68,10 +69,8 @@ public sealed class BackupTests
         File.Exists(asideKey).ShouldBeTrue();
         var envelope = KeyFile.Read(asideKey)!;
         var oldKey = await target.Protector.UnprotectAsync(envelope, CancellationToken.None);
-        await using var db = await ConnectionFactory.OpenFileAsync(asideDb, Convert.ToHexString(oldKey), TestContext.Current.CancellationToken);
-        await using var command = db.CreateCommand();
-        command.CommandText = "SELECT \"DisplayName\" FROM \"accounts\"";
-        (await command.ExecuteScalarAsync(TestContext.Current.CancellationToken)).ShouldBe("Before restore");
+        await using var db = PublisherDbContextFactory.ForFile(asideDb, Convert.ToHexString(oldKey));
+        (await db.Accounts.Select(a => a.DisplayName).SingleAsync(TestContext.Current.CancellationToken)).ShouldBe("Before restore");
     }
 
     [Fact]
@@ -135,8 +134,8 @@ public sealed class BackupTests
         using var h = await StorageHarness.CreatedAsync();
         var passphrase = h.Key.Passphrase();
         var copy = Path.Combine(h.Paths.DataDirectory, "copy.db");
-        using (var source = new SqliteConnection(TMPublisher.Storage.Database.ConnectionFactory.ConnectionString(h.Paths.DatabaseFile, passphrase)))
-        using (var destination = new SqliteConnection(TMPublisher.Storage.Database.ConnectionFactory.ConnectionString(copy, passphrase)))
+        using (var source = new SqliteConnection(PublisherDbContextFactory.ConnectionString(h.Paths.DatabaseFile, passphrase)))
+        using (var destination = new SqliteConnection(PublisherDbContextFactory.ConnectionString(copy, passphrase)))
         {
             source.Open();
             destination.Open();

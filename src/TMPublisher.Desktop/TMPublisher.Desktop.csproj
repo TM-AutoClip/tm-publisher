@@ -23,6 +23,37 @@
   <PropertyGroup>
     <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
+  <!--
+    EF Core (the database stores) is not trim-safe inside itself: it reaches its own services, query translators and value converters by
+    reflection. Its three assemblies are not trimmed (IsTrimmable=false), so nothing it needs is removed; the warnings the trimmer finds
+    inside them are reported one by one (no single IL2104) and suppressed for those three assemblies only, with the reason, in
+    ILLink.EntityFrameworkCore.xml (_ExtraTrimmerArgs: the SDK has no public item for a link-attributes file). Our model code is analysed
+    like every other assembly. Measured (win-x64, one file): 54.7 MB instead of 46.1 MB with the hand-written SQL stores.
+  -->
+  <PropertyGroup>
+    <_ExtraTrimmerArgs>$(_ExtraTrimmerArgs) --link-attributes "$(MSBuildThisFileDirectory)ILLink.EntityFrameworkCore.xml"</_ExtraTrimmerArgs>
+  </PropertyGroup>
+  <!--
+    Some of those suppressed warnings (IL2060, IL2070, IL2075, IL2111 ...) mark places where EF Core reflects into OTHER assemblies, which are
+    still trimmed. The ones it reflects into for queries, the ADO.NET provider and its attributes are kept whole too (about 1 MB before
+    compression), so no member it may look up there is removed: System.Linq.Queryable (QueryableMethods), System.Linq (EnumerableMethods),
+    Microsoft.Data.Sqlite (the connection, reader and parameter types the SQLite provider maps) and Microsoft.EntityFrameworkCore.Abstractions.
+    The published program itself is run on the 0.1.5 test database by tools/check-published.ps1 (PublishedProgramTests).
+  -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="System.Linq.Queryable" />
+    <TrimmerRootAssembly Include="System.Linq" />
+    <TrimmerRootAssembly Include="Microsoft.Data.Sqlite" />
+    <TrimmerRootAssembly Include="Microsoft.EntityFrameworkCore.Abstractions" />
+  </ItemGroup>
+  <Target Name="KeepEntityFrameworkWhole" BeforeTargets="PrepareForILLink">
+    <ItemGroup>
+      <ManagedAssemblyToLink Condition="'%(Filename)' == 'Microsoft.EntityFrameworkCore' Or '%(Filename)' == 'Microsoft.EntityFrameworkCore.Relational' Or '%(Filename)' == 'Microsoft.EntityFrameworkCore.Sqlite'">
+        <IsTrimmable>false</IsTrimmable>
+        <TrimmerSingleWarn>false</TrimmerSingleWarn>
+      </ManagedAssemblyToLink>
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />

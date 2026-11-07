@@ -8,6 +8,7 @@
 # Binary files.
 *.png   binary
 *.ico   binary
+*.sqlite binary
 *.ttf   binary
 *.gz    binary
 *.zip   binary

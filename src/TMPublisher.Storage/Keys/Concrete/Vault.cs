@@ -50,9 +50,9 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
             key.Load(dek);
             try
             {
-                await using (var connection = await new ConnectionFactory(paths, key).OpenAsync(cancellationToken).ConfigureAwait(false))
+                await using (var context = new PublisherDbContextFactory(paths, key).CreateDbContext())
                 {
-                    await Schema.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
+                    await Schema.EnsureAsync(context, cancellationToken).ConfigureAwait(false);
                 }
 
                 KeyFile.Write(paths.KeyFile, envelope);
@@ -132,9 +132,9 @@ public sealed class Vault(IAppPaths paths, DatabaseKey key, IEnumerable<IKeyProt
         key.Load(dek);
         try
         {
-            await using var connection = await new ConnectionFactory(paths, key).OpenAsync(cancellationToken).ConfigureAwait(false);
-            await Schema.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
-            await Schema.VerifyAsync(connection, cancellationToken).ConfigureAwait(false);
+            await using var context = new PublisherDbContextFactory(paths, key).CreateDbContext();
+            await Schema.EnsureAsync(context, cancellationToken).ConfigureAwait(false);
+            await Schema.VerifyAsync(context, cancellationToken).ConfigureAwait(false);
         }
         catch
         {

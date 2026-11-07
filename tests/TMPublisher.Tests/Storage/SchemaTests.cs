@@ -1,14 +1,16 @@
-using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using Shouldly;
+using TMPublisher.Core.Accounts;
 using TMPublisher.Storage.Database;
+using TMPublisher.Storage.Stores;
 
 namespace TMPublisher.Tests.Storage;
 
 /// <summary>
-/// The hand-written schema is the one EF Core's EnsureCreated made in 0.1.0–0.1.2 (captured from a 0.1.2 database), so their databases open
-/// unchanged; values are stored in the same formats.
+/// The schema EF Core makes is the one of 0.1.0–0.1.2 (captured from a 0.1.2 database; 0.1.3–0.1.5 wrote the same by hand), so their
+/// databases open unchanged; values are stored in the same formats.
 /// </summary>
-public sealed partial class SchemaTests
+public sealed class SchemaTests
 {
     private static readonly string[] Stored012 =
     [
@@ -31,22 +33,21 @@ public sealed partial class SchemaTests
     public async Task TheSchemaIsTheOneOfVersion012()
     {
         using var h = await StorageHarness.CreatedAsync();
-        await using var connection = await h.Factory.OpenAsync(TestContext.Current.CancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'";
-        var made = new List<string>();
-        await using (var reader = await command.ExecuteReaderAsync(TestContext.Current.CancellationToken))
-        {
-            while (await reader.ReadAsync(TestContext.Current.CancellationToken))
-            {
-                made.Add(reader.GetString(0) + " " + reader.GetString(1) + ": " + Spaces().Replace(reader.GetString(2), " "));
-            }
-        }
+        var made = await RawTables.SchemaAsync(h.Paths.DatabaseFile, h.Key.Passphrase(), TestContext.Current.CancellationToken);
+        made.ShouldBe(Stored012.Order(StringComparer.Ordinal));
+    }
 
-        made.Order(StringComparer.Ordinal).ShouldBe(Stored012.Order(StringComparer.Ordinal));
-        await using var journal = connection.CreateCommand();
-        journal.CommandText = "PRAGMA journal_mode";
-        (await journal.ExecuteScalarAsync(TestContext.Current.CancellationToken)).ShouldBe("wal");
+    [Fact]
+    public async Task ANewFileIsInWalMode()
+    {
+        using var h = await StorageHarness.CreatedAsync();
+        File.Exists(h.Paths.DatabaseFile + "-wal").ShouldBeFalse();
+
+        // A WAL database keeps its -wal file while a connection is open; a rollback-journal database never has one.
+        await using var context = h.Factory.CreateDbContext();
+        await context.Database.OpenConnectionAsync(TestContext.Current.CancellationToken);
+        await Schema.VerifyAsync(context, TestContext.Current.CancellationToken);
+        File.Exists(h.Paths.DatabaseFile + "-wal").ShouldBeTrue();
     }
 
     [Fact]
@@ -55,19 +56,10 @@ public sealed partial class SchemaTests
         using var h = await StorageHarness.CreatedAsync();
         var id = Guid.NewGuid();
         var at = new DateTimeOffset(2026, 11, 5, 12, 30, 0, TimeSpan.FromHours(3));
-        await new TMPublisher.Storage.Stores.AccountStore(h.Factory).SaveAsync(
-            new TMPublisher.Core.Accounts.Account { Id = id, Platform = "x", DisplayName = "n", ConnectedAtUtc = at }, CancellationToken.None);
-        await using var connection = await h.Factory.OpenAsync(TestContext.Current.CancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT \"Id\", \"ConnectedAtUtc\", typeof(\"ConnectedAtUtc\"), \"ReconnectByUtc\" IS NULL FROM \"accounts\"";
-        await using var reader = await command.ExecuteReaderAsync(TestContext.Current.CancellationToken);
-        (await reader.ReadAsync(TestContext.Current.CancellationToken)).ShouldBeTrue();
-        reader.GetString(0).ShouldBe(id.ToString("D").ToUpperInvariant());
-        reader.GetInt64(1).ShouldBe(at.UtcTicks);
-        reader.GetString(2).ShouldBe("integer");
-        reader.GetInt64(3).ShouldBe(1);
+        await new AccountStore(h.Factory).SaveAsync(new Account { Id = id, Platform = "x", DisplayName = "n", ConnectedAtUtc = at, State = AccountState.NeedsReconnect },
+            CancellationToken.None);
+        var rows = await RawTables.RowsAsync(h.Paths.DatabaseFile, h.Key.Passphrase(), TestContext.Current.CancellationToken);
+        rows.Single().ShouldBe($"accounts: Id='{id.ToString("D").ToUpperInvariant()}' | Platform='x' | DisplayName='n' | Handle=NULL | ExternalId='' | State=1 "
+            + $"| ReconnectByUtc=NULL | ConnectedAtUtc={at.UtcTicks}");
     }
-
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex Spaces();
 }

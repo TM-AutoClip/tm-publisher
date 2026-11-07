@@ -39,8 +39,8 @@ public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault,
         try
         {
             var passphrase = key.Passphrase();
-            using (var source = new SqliteConnection(ConnectionFactory.ConnectionString(paths.DatabaseFile, passphrase)))
-            using (var destination = new SqliteConnection(ConnectionFactory.ConnectionString(copy, passphrase)))
+            using (var source = new SqliteConnection(PublisherDbContextFactory.ConnectionString(paths.DatabaseFile, passphrase)))
+            using (var destination = new SqliteConnection(PublisherDbContextFactory.ConnectionString(copy, passphrase)))
             {
                 source.Open();
                 destination.Open();
@@ -105,8 +105,8 @@ public sealed class BackupService(IAppPaths paths, DatabaseKey key, Vault vault,
     {
         try
         {
-            await using var connection = await ConnectionFactory.OpenFileAsync(file, Convert.ToHexString(dek), cancellationToken).ConfigureAwait(false);
-            await Schema.VerifyAsync(connection, cancellationToken).ConfigureAwait(false);
+            await using var context = PublisherDbContextFactory.ForFile(file, Convert.ToHexString(dek));
+            await Schema.VerifyAsync(context, cancellationToken).ConfigureAwait(false);
         }
         catch (SqliteException ex)
         {

@@ -25,7 +25,7 @@ public sealed class EncryptionTests
 
         await Should.ThrowAsync<SqliteException>(async () =>
         {
-            await using var other = await ConnectionFactory.OpenFileAsync(h.Paths.DatabaseFile, Convert.ToHexString(new byte[32]), TestContext.Current.CancellationToken);
+            await using var other = PublisherDbContextFactory.ForFile(h.Paths.DatabaseFile, Convert.ToHexString(new byte[32]));
             await Schema.VerifyAsync(other, TestContext.Current.CancellationToken);
         });
     }
