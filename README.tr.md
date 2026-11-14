@@ -87,7 +87,7 @@ Windows 10 ya da 11, 64 bit.
 1. [Son sürüm](../../releases/latest) sayfasını açın ve `TMPublisher-<sürüm>-win-x64.zip` dosyasını indirin.
 2. İsteğe bağlı ama önerilir: dosyayı sürüm sayfasındaki SHA-256 değeriyle karşılaştırın. PowerShell'de:
    ```powershell
-   Get-FileHash .\TMPublisher-0.1.5-win-x64.zip -Algorithm SHA256
+   Get-FileHash .\TMPublisher-0.1.6-win-x64.zip -Algorithm SHA256
    ```
 3. Kalacağı bir yere açın, örneğin `%LOCALAPPDATA%\Programs` içine. İçinden tek bir program (`TMPublisher.exe`) ve belgeleri
    bulunan bir `TM Publisher` klasörü çıkar. Görev Zamanlayıcı görevi tam bu dosyaya bakar; yeri ilk açılıştan önce seçin (sonra
@@ -107,12 +107,12 @@ kullanın. Pencere ve bildirimler için bir masaüstü oturumu (X11 ya da XWayla
    indirin.
 2. İsteğe bağlı: SHA-256 değerini denetleyin:
    ```sh
-   sha256sum tm-publisher-0.1.5-linux-x64.tar.gz
+   sha256sum tm-publisher-0.1.6-linux-x64.tar.gz
    ```
 3. Kalacağı bir yere açın (program zaten çalıştırılabilir işaretli):
    ```sh
    mkdir -p ~/.local/opt
-   tar -xzf tm-publisher-0.1.5-linux-x64.tar.gz -C ~/.local/opt
+   tar -xzf tm-publisher-0.1.6-linux-x64.tar.gz -C ~/.local/opt
    ```
 4. **Anahtarlık (önerilir).** Oturum açınca veritabanının kendiliğinden açılması için TM Publisher anahtarını masaüstü
    anahtarlığınızda (GNOME Keyring, KWallet, KeePassXC...) `secret-tool` komutuyla saklar:
