@@ -15,6 +15,12 @@
           <TextBlock Text="TM Publisher" Classes="h2" VerticalAlignment="Center" />
         </StackPanel>
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Classes="small" TextWrapping="Wrap" Margin="14" />
+        <Border DockPanel.Dock="Bottom" Classes="card" Margin="8,6" Padding="10" IsVisible="{Binding UpdateAvailable}" Name="UpdateNotice">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{Binding UpdateText}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <Button Classes="accent" Content="{l:Tr update.download_page}" Command="{Binding OpenUpdatePageCommand}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </Border>
         <Button DockPanel.Dock="Bottom" Classes="nav" Command="{Binding QuitCommand}" Margin="8,2">
           <StackPanel Orientation="Horizontal" Spacing="10">
             <TextBlock Text="⏻" Width="20" TextAlignment="Center" />

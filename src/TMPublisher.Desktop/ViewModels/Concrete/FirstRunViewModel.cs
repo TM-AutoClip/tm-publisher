@@ -101,7 +101,9 @@ public sealed partial class FirstRunViewModel(Vault vault, BackupService backup,
     private void ChooseLanguage()
     {
         var code = Language?.Code ?? "en";
-        preferences.Write(new UiPreferences { Language = code });
+        var kept = preferences.Read();
+        kept.Language = code;
+        preferences.Write(kept);
         text.Use(code);
         LanguageChosen?.Invoke(this, EventArgs.Empty);
     }

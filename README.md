@@ -82,7 +82,7 @@ Windows 10 or 11, 64-bit.
 1. Open the [latest release](../../releases/latest) and download `TMPublisher-<version>-win-x64.zip`.
 2. Optional but recommended: check the file against the SHA-256 value on the release page. In PowerShell:
    ```powershell
-   Get-FileHash .\TMPublisher-0.1.6-win-x64.zip -Algorithm SHA256
+   Get-FileHash .\TMPublisher-0.1.7-win-x64.zip -Algorithm SHA256
    ```
 3. Unpack it where it can stay, for example to `%LOCALAPPDATA%\Programs`. You get a `TM Publisher` folder with one program,
    `TMPublisher.exe`, and its documents. The Task Scheduler task points to this exact file, so choose the place before the first
@@ -101,12 +101,12 @@ desktop). A desktop session (X11, or Wayland with XWayland) is required for the 
 1. Download `tm-publisher-<version>-linux-x64.tar.gz` (or `-linux-arm64`) from the [latest release](../../releases/latest).
 2. Optional: check the SHA-256 value:
    ```sh
-   sha256sum tm-publisher-0.1.6-linux-x64.tar.gz
+   sha256sum tm-publisher-0.1.7-linux-x64.tar.gz
    ```
 3. Unpack it where it can stay (the program is already marked executable):
    ```sh
    mkdir -p ~/.local/opt
-   tar -xzf tm-publisher-0.1.6-linux-x64.tar.gz -C ~/.local/opt
+   tar -xzf tm-publisher-0.1.7-linux-x64.tar.gz -C ~/.local/opt
    ```
 4. **Keyring (recommended).** To open the database automatically when you sign in, TM Publisher stores its key in your
    desktop keyring (GNOME Keyring, KWallet, KeePassXC...) with the `secret-tool` command:
@@ -168,6 +168,11 @@ you at once whether it worked.
 
 ## Update
 
+From 0.1.7 on, the window asks GitHub at every start, in the background, whether a newer version is published (one request to
+`api.github.com`, no account; nothing about you or your posts is sent). When there is one, the sidebar shows it with a button to its
+download page. The program never downloads or installs anything itself: you update by hand as below. **Settings → Updates** has
+**Check now** and a switch to turn the check at start off.
+
 1. Optional: make a backup in **Settings → Backup**.
 2. Stop the old version:
    - **From 0.1.0–0.1.2:** quit it from its tray menu (**Quit**) or with **Quit TM Publisher** at the bottom of the sidebar
@@ -211,7 +216,7 @@ you at once whether it worked.
 | Linux | `~/.local/share/tm-publisher` (or `$XDG_DATA_HOME/tm-publisher`) |
 
 Inside: `publisher.db` (the encrypted database), `key.json` (the database key, sealed by DPAPI, the keyring or your master
-password), `preferences.json` (only the interface language), `logs/` (one file per day and kind: `app-yyyy-MM-dd.log` for
+password), `preferences.json` (only the interface language and the update check switch), `update-check.json` (GitHub's last answer about the newest version), `logs/` (one file per day and kind: `app-yyyy-MM-dd.log` for
 the window, `run-…` for the runs the system scheduler starts, `notify-…` for notifications, `scheduler-…` from 0.1.3–0.1.4; kept 7
 days; never contain tokens or passwords), `reports/` (only the logs zips you make with "Report a problem"),
 `scheduler-instance.lock` (one sender per data folder: the window or one run) / `window-instance.lock` (one window),

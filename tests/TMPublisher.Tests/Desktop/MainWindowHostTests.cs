@@ -94,8 +94,8 @@ public sealed class MainWindowHostTests
         }).ToList();
 
         var shell = new ShellViewModel(entries, h.Services.GetRequiredService<PageNavigator>(), h.Services.GetRequiredService<Localizer>(), TimeProvider.System,
-            h.Services.GetRequiredService<Func<ReportProblemViewModel>>(),
-            NullLogger<ShellViewModel>.Instance);
+            h.Services.GetRequiredService<Func<ReportProblemViewModel>>(), h.Services.GetRequiredService<TMPublisher.Desktop.Updates.UpdateWatcher>(),
+            h.Services.GetRequiredService<TMPublisher.Desktop.Os.IUrlOpener>(), NullLogger<ShellViewModel>.Instance);
 
         shell.Items.Count.ShouldBe(8);
         shell.Items.Select(i => i.Entry.Order).ShouldBeInOrder();

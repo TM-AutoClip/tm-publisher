@@ -23,6 +23,7 @@ using TMPublisher.Desktop.Sending;
 using TMPublisher.Runtime.Logging;
 using TMPublisher.Runtime.Paths;
 using TMPublisher.Desktop.Startup;
+using TMPublisher.Desktop.Updates;
 using TMPublisher.Desktop.ViewModels;
 using TMPublisher.Desktop.Views;
 using TMPublisher.Storage.Backup;
@@ -116,6 +117,11 @@ public static class DesktopServices
         services.AddSingleton<WindowSender>();
         services.AddSingleton<IStartupTask>(s => s.GetRequiredService<WindowSender>());
         services.AddSingleton<IPostScheduler, WindowScheduler>();
+
+        // A look for a new version at every start, in the background after the window is shown (only a notice and the download page).
+        services.AddSingleton<ReleaseChecker>();
+        services.AddSingleton<UpdateWatcher>();
+        services.AddSingleton<IStartupTask>(s => s.GetRequiredService<UpdateWatcher>());
         overrides?.Invoke(services);
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }

@@ -77,6 +77,20 @@
       </Border>
 
       <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{l:Tr settings.updates}" Classes="h2" />
+          <TextBlock Text="{l:Tr settings.updates.explain}" Classes="muted" TextWrapping="Wrap" />
+          <CheckBox IsChecked="{Binding CheckForUpdates}" Content="{l:Tr settings.updates.at_start}" />
+          <TextBlock Text="{Binding UpdateStatus}" FontWeight="SemiBold" TextWrapping="Wrap"
+                     IsVisible="{Binding UpdateStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{l:Tr settings.updates.check_now}" Command="{Binding CheckUpdatesCommand}" />
+            <Button Classes="accent" Content="{l:Tr update.download_page}" Command="{Binding OpenUpdatePageCommand}" IsVisible="{Binding UpdateAvailable}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
         <StackPanel Spacing="6">
           <TextBlock Text="{l:Tr settings.about}" Classes="h2" />
           <TextBlock Text="{Binding Version, StringFormat='TM Publisher {0}'}" />

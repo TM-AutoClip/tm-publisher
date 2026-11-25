@@ -1,8 +1,11 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using TMPublisher.Desktop.Localization;
+using TMPublisher.Desktop.Os;
+using TMPublisher.Desktop.Updates;
 
 namespace TMPublisher.Desktop.ViewModels;
 
@@ -13,22 +16,36 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly ILogger<ShellViewModel> _logger;
     private readonly TimeProvider _clock;
     private readonly Func<ReportProblemViewModel> _report;
+    private readonly IUrlOpener _browser;
+    private Uri _updatePage = UpdateRules.DownloadPage;
     private readonly List<PageViewModelBase> _opened = [];
     private DateTimeOffset? _warnedAt;
 
     /// <summary>Builds the sidebar from every registered page (the pages themselves are created when first opened).</summary>
     public ShellViewModel(IEnumerable<PageEntry> pages, PageNavigator navigator, Localizer text, TimeProvider clock, Func<ReportProblemViewModel> report,
-        ILogger<ShellViewModel> logger)
+        UpdateWatcher updates, IUrlOpener browser, ILogger<ShellViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(navigator);
         ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(updates);
         _text = text;
         _logger = logger;
         _clock = clock;
         _report = report;
+        _browser = browser;
         Items = new ObservableCollection<NavItemViewModel>(pages.OrderBy(p => p.Order).Select(p => new NavItemViewModel(this, p, text[p.TitleKey])));
         navigator.Requested += (_, page) => _ = NavigateAsync(page);
+        updates.Changed += (_, result) => Dispatcher.UIThread.Post(() => ShowUpdate(result));
+        ShowUpdate(updates.Last);
     }
+
+    /// <summary>A newer version is published (the sidebar shows <see cref="UpdateText"/> and a button to its download page).</summary>
+    [ObservableProperty]
+    public partial bool UpdateAvailable { get; set; }
+
+    /// <summary>"Version X is available" (localized; empty when none).</summary>
+    [ObservableProperty]
+    public partial string UpdateText { get; set; } = string.Empty;
 
     /// <summary>Sidebar.</summary>
     public ObservableCollection<NavItemViewModel> Items { get; }
@@ -56,6 +73,24 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             await show(_report()).ConfigureAwait(true);
         }
+    }
+
+    /// <summary>Opens the download page of the new version in the browser (nothing is downloaded or installed by the program).</summary>
+    [RelayCommand]
+    private void OpenUpdatePage()
+    {
+        _logger.LogInformation("Download page of the new version opened");
+        if (!_browser.TryOpen(_updatePage))
+        {
+            Status = _text.Format("update.open_failed", _updatePage);
+        }
+    }
+
+    private void ShowUpdate(UpdateCheckResult result)
+    {
+        UpdateAvailable = result.Outcome == UpdateOutcome.NewVersion && result.Latest is not null;
+        UpdateText = UpdateAvailable ? _text.Format("update.available", result.Latest!.ToString(3)) : string.Empty;
+        _updatePage = result.Page;
     }
 
     /// <summary>Closes the window program.</summary>

@@ -87,7 +87,7 @@ Windows 10 ya da 11, 64 bit.
 1. [Son sürüm](../../releases/latest) sayfasını açın ve `TMPublisher-<sürüm>-win-x64.zip` dosyasını indirin.
 2. İsteğe bağlı ama önerilir: dosyayı sürüm sayfasındaki SHA-256 değeriyle karşılaştırın. PowerShell'de:
    ```powershell
-   Get-FileHash .\TMPublisher-0.1.6-win-x64.zip -Algorithm SHA256
+   Get-FileHash .\TMPublisher-0.1.7-win-x64.zip -Algorithm SHA256
    ```
 3. Kalacağı bir yere açın, örneğin `%LOCALAPPDATA%\Programs` içine. İçinden tek bir program (`TMPublisher.exe`) ve belgeleri
    bulunan bir `TM Publisher` klasörü çıkar. Görev Zamanlayıcı görevi tam bu dosyaya bakar; yeri ilk açılıştan önce seçin (sonra
@@ -107,12 +107,12 @@ kullanın. Pencere ve bildirimler için bir masaüstü oturumu (X11 ya da XWayla
    indirin.
 2. İsteğe bağlı: SHA-256 değerini denetleyin:
    ```sh
-   sha256sum tm-publisher-0.1.6-linux-x64.tar.gz
+   sha256sum tm-publisher-0.1.7-linux-x64.tar.gz
    ```
 3. Kalacağı bir yere açın (program zaten çalıştırılabilir işaretli):
    ```sh
    mkdir -p ~/.local/opt
-   tar -xzf tm-publisher-0.1.6-linux-x64.tar.gz -C ~/.local/opt
+   tar -xzf tm-publisher-0.1.7-linux-x64.tar.gz -C ~/.local/opt
    ```
 4. **Anahtarlık (önerilir).** Oturum açınca veritabanının kendiliğinden açılması için TM Publisher anahtarını masaüstü
    anahtarlığınızda (GNOME Keyring, KWallet, KeePassXC...) `secret-tool` komutuyla saklar:
@@ -174,6 +174,11 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 
 ## Güncelleme
 
+0.1.7'den itibaren pencere her açılışta, arka planda, GitHub'a daha yeni bir sürüm yayımlanıp yayımlanmadığını sorar (`api.github.com`'a
+tek istek, hesap gerekmez; sizinle ya da paylaşımlarınızla ilgili hiçbir şey gönderilmez). Yeni sürüm varsa kenar çubuğunda indirme
+sayfasına giden bir düğmeyle gösterilir. Program kendisi hiçbir şey indirmez ya da kurmaz: güncellemeyi aşağıdaki gibi elle yaparsınız.
+**Ayarlar → Güncellemeler**'de **Şimdi denetle** ve açılıştaki denetimi kapatan bir anahtar vardır.
+
 1. İsteğe bağlı: **Ayarlar → Yedek**'ten bir yedek alın.
 2. Eski sürümü durdurun:
    - **0.1.0–0.1.2'den:** tepsi menüsünden (**Çık**) ya da kenar çubuğunun altındaki **TM Publisher'dan çık** ile kapatın (pencereyi
@@ -218,7 +223,7 @@ adımların aynısını, her biri işaretlenebilir şekilde gösterir; gereken y
 | Linux | `~/.local/share/tm-publisher` (ya da `$XDG_DATA_HOME/tm-publisher`) |
 
 İçinde: `publisher.db` (şifreli veritabanı), `key.json` (DPAPI, anahtarlık ya da ana parolanızla mühürlenmiş veritabanı
-anahtarı), `preferences.json` (yalnız arayüz dili), `logs/` (gün ve tür başına bir dosya: pencere için `app-yyyy-MM-dd.log`, sistem
+anahtarı), `preferences.json` (yalnız arayüz dili ve güncelleme denetimi anahtarı), `update-check.json` (GitHub'ın en yeni sürüm hakkındaki son cevabı), `logs/` (gün ve tür başına bir dosya: pencere için `app-yyyy-MM-dd.log`, sistem
 zamanlayıcısının başlattığı çalıştırmalar için `run-…`, bildirimler için `notify-…`, 0.1.3–0.1.4'ten kalan `scheduler-…`; 7 gün
 tutulur; asla anahtar ya da parola içermez), `reports/` (yalnız "Hata bildir" ile sizin yaptığınız günlük zip dosyaları),
 `scheduler-instance.lock` (bir veri klasörü için tek gönderici: pencere ya da bir çalıştırma) / `window-instance.lock` (tek pencere),

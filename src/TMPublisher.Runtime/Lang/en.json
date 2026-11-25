@@ -393,5 +393,18 @@
   "report.zip_ready_no_folder": "The logs zip is ready, but the folder could not be opened. Find it here: {0}",
   "report.github_opened": "The bug form is open in your browser. Drag the logs zip into it.",
   "report.github_opened_no_zip": "The bug form is open in your browser. Use \"Prepare logs\" first if you want to attach the logs.",
-  "report.copied": "The details were copied."
+  "report.copied": "The details were copied.",
+  "settings.updates": "Updates",
+  "settings.updates.explain": "At every start the window asks GitHub, in the background, whether a newer TM Publisher is published (one request to api.github.com, no account, nothing about you is sent). The program never downloads or installs anything itself: it shows the new version and opens its download page.",
+  "settings.updates.at_start": "Check for a new version at every start",
+  "settings.updates.check_now": "Check now",
+  "update.checking": "Checking…",
+  "update.available": "TM Publisher {0} is available.",
+  "update.up_to_date": "You have the newest version (newest published: {0}).",
+  "update.no_release": "No published version was found.",
+  "update.waiting": "GitHub asked to wait before the next check (until {0}). The check runs again after that.",
+  "update.unreachable": "GitHub could not be reached. The check runs again at the next start.",
+  "update.off": "Checking at start is off. Use \"Check now\" to look.",
+  "update.download_page": "Open the download page",
+  "update.open_failed": "The browser could not be opened. The download page is: {0}"
 }

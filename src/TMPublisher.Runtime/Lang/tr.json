@@ -393,5 +393,18 @@
   "report.zip_ready_no_folder": "Günlük zip dosyası hazır ama klasör açılamadı. Burada: {0}",
   "report.github_opened": "Hata formu tarayıcınızda açıldı. Günlük zip dosyasını forma sürükleyin.",
   "report.github_opened_no_zip": "Hata formu tarayıcınızda açıldı. Günlükleri eklemek isterseniz önce \"Günlükleri hazırla\"yı kullanın.",
-  "report.copied": "Bilgiler kopyalandı."
+  "report.copied": "Bilgiler kopyalandı.",
+  "settings.updates": "Güncellemeler",
+  "settings.updates.explain": "Pencere her açılışta, arka planda, GitHub'a daha yeni bir TM Publisher yayımlanıp yayımlanmadığını sorar (api.github.com'a tek istek, hesap gerekmez, sizinle ilgili hiçbir şey gönderilmez). Program kendisi hiçbir şey indirmez ya da kurmaz: yeni sürümü gösterir ve indirme sayfasını açar.",
+  "settings.updates.at_start": "Her açılışta yeni sürümü denetle",
+  "settings.updates.check_now": "Şimdi denetle",
+  "update.checking": "Denetleniyor…",
+  "update.available": "TM Publisher {0} yayımlandı.",
+  "update.up_to_date": "En yeni sürümü kullanıyorsunuz (yayımlanan en yeni sürüm: {0}).",
+  "update.no_release": "Yayımlanmış bir sürüm bulunamadı.",
+  "update.waiting": "GitHub bir sonraki denetim için beklemeyi istedi ({0} sonrasına kadar). Denetim ondan sonra yeniden yapılır.",
+  "update.unreachable": "GitHub'a ulaşılamadı. Denetim bir sonraki açılışta yeniden yapılır.",
+  "update.off": "Açılışta denetim kapalı. Bakmak için \"Şimdi denetle\"yi kullanın.",
+  "update.download_page": "İndirme sayfasını aç",
+  "update.open_failed": "Tarayıcı açılamadı. İndirme sayfası: {0}"
 }

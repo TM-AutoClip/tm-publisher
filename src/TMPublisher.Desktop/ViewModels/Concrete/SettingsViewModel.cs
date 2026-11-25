@@ -9,6 +9,8 @@ using TMPublisher.Desktop.Localization;
 using TMPublisher.Desktop.Paths;
 using TMPublisher.Desktop.Sending;
 using TMPublisher.Desktop.Startup;
+using TMPublisher.Desktop.Updates;
+using TMPublisher.Desktop.Os;
 using TMPublisher.Storage.Backup;
 using TMPublisher.Storage.Crypto;
 using TMPublisher.Storage.Keys;
@@ -17,15 +19,16 @@ namespace TMPublisher.Desktop.ViewModels;
 
 /// <summary>
 /// Settings: language, notifications, sending while the app is closed (the system scheduler's entry and its state), pause / resume, protection
-/// (keyring / master password), backup and restore, about.
+/// (keyring / master password), backup and restore, updates (look at every start, "Check now", the download page), about.
 /// </summary>
 public sealed partial class SettingsViewModel(AppSession session, UiPreferencesFile preferences, Vault vault, BackupService backup,
     UiMasterPassword masterPassword, FileDialogs dialogs, IAppPaths paths, IPostScheduler scheduler, WindowSender sender, TimeProvider clock,
-    Localizer text, ILogger<SettingsViewModel> logger)
+    UpdateWatcher updates, IUrlOpener browser, Localizer text, ILogger<SettingsViewModel> logger)
     : PageViewModelBase, IPageInfo
 {
     private static readonly TimeSpan RestoreWait = TimeSpan.FromSeconds(30);
     private bool _watching;
+    private bool _loading;
 
     /// <inheritdoc />
     public static string TitleKey => "nav.settings";
@@ -113,6 +116,23 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
     [ObservableProperty]
     public partial bool SchedulerCanPause { get; set; }
 
+    /// <summary>Look for a new version at every start (stored at once in the plain preferences file).</summary>
+    [ObservableProperty]
+    public partial bool CheckForUpdates { get; set; }
+
+    /// <summary>The last look for a new version (localized; empty before the first).</summary>
+    [ObservableProperty]
+    public partial string UpdateStatus { get; set; } = string.Empty;
+
+    /// <summary>A newer version is published (the download page button is shown).</summary>
+    [ObservableProperty]
+    public partial bool UpdateAvailable { get; set; }
+
+    /// <summary>A look is running ("Check now" is disabled).</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckUpdatesCommand))]
+    public partial bool UpdateChecking { get; set; }
+
     /// <summary>Data folder.</summary>
     public string DataFolder => paths.DataDirectory;
 
@@ -129,6 +149,10 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
         StartWithSystem = s.StartWithSystem;
         WakeToRun = s.WakeToRun;
         TikTokDraftByDefault = s.TikTokDraftByDefault;
+        _loading = true;
+        CheckForUpdates = preferences.Read().CheckForUpdates;
+        _loading = false;
+        ShowUpdate(updates.Last);
         UsesMasterPassword = vault.Method == KeyMethods.Password;
         Protection = text[UsesMasterPassword ? "settings.protection.password" : "settings.protection.keyring"];
         if (session.PendingMessage is { } pending)
@@ -141,10 +165,77 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
         {
             _watching = true;
             sender.StateChanged += (_, _) => Dispatcher.UIThread.Post(ShowScheduler);
+            updates.Changed += (_, result) => Dispatcher.UIThread.Post(() => ShowUpdate(result));
         }
 
         ShowScheduler();
         return Task.CompletedTask;
+    }
+
+    /// <summary>Looks for a new version now (GitHub's wait after its rate limit is respected here too).</summary>
+    [RelayCommand(CanExecute = nameof(CanCheckUpdates))]
+    private async Task CheckUpdatesAsync()
+    {
+        UpdateChecking = true;
+        UpdateStatus = text["update.checking"];
+        try
+        {
+            ShowUpdate(await updates.CheckAsync(CancellationToken.None).ConfigureAwait(true));
+        }
+        finally
+        {
+            UpdateChecking = false;
+        }
+    }
+
+    private bool CanCheckUpdates() => !UpdateChecking;
+
+    /// <summary>Opens the download page of the newest version in the browser.</summary>
+    [RelayCommand]
+    private void OpenUpdatePage()
+    {
+        var page = updates.Last.Page;
+        if (!browser.TryOpen(page))
+        {
+            UpdateStatus = text.Format("update.open_failed", page);
+        }
+    }
+
+    partial void OnCheckForUpdatesChanged(bool value)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        try
+        {
+            var kept = preferences.Read();
+            kept.CheckForUpdates = value;
+            preferences.Write(kept);
+            logger.LogInformation("Update check at start turned {State}", value ? "on" : "off");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogError(ex, "The update check setting could not be stored");
+            Status = text.Format("error.generic", ex.Message);
+        }
+    }
+
+    private void ShowUpdate(UpdateCheckResult result)
+    {
+        UpdateAvailable = result.Outcome == UpdateOutcome.NewVersion && result.Latest is not null;
+        var latest = result.Latest?.ToString(3) ?? string.Empty;
+        UpdateStatus = result.Outcome switch
+        {
+            UpdateOutcome.NewVersion => text.Format("update.available", latest),
+            UpdateOutcome.UpToDate => text.Format("update.up_to_date", latest),
+            UpdateOutcome.NoRelease => text["update.no_release"],
+            UpdateOutcome.Waiting when result.NotBeforeUtc is { } until => text.Format("update.waiting", Local(until)),
+            UpdateOutcome.Unreachable => text["update.unreachable"],
+            UpdateOutcome.Off => text["update.off"],
+            _ => string.Empty,
+        };
     }
 
     /// <summary>Pauses sending (also while the window is closed).</summary>
@@ -236,7 +327,9 @@ public sealed partial class SettingsViewModel(AppSession session, UiPreferencesF
         try
         {
             await session.SaveAsync(s, CancellationToken.None).ConfigureAwait(true);
-            preferences.Write(new UiPreferences { Language = s.Language });
+            var kept = preferences.Read();
+            kept.Language = s.Language;
+            preferences.Write(kept);
 
             // Reads the schedule again and writes (or removes) the system scheduler's entry with the new settings.
             scheduler.Wake();
